@@ -1,0 +1,189 @@
+databaseChangeLog:
+  - changeSet:
+      id: create_all_tables
+      author: skillbox_student
+      changes:
+        - createTable:
+            tableName: sites
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: site_status
+                  type: enum('INDEXING', 'INDEXED', 'FAILED')
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status_time
+                  type: datetime
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_error
+                  type: text
+              - column:
+                  name: site_url
+                  type: varchar(255)
+                  constraints:
+                    unique: true
+                    nullable: false
+              - column:
+                  name: site_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: site_url(50)
+            indexName: site_site_url
+            tableName: sites
+        - createTable:
+            tableName: pages
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: site_id
+                  type: int
+                  constraints:
+                    foreignKeyName: pages_site_fk
+                    referencedTableName: sites
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: page_path
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: page_content
+                  type: mediumtext
+                  constraints:
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: site_id
+              - column:
+                  name: page_path(50)
+            indexName: pages_path_site_id
+            tableName: pages
+            unique: true
+        - createTable:
+            tableName: lemmas
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: lemma
+                  type: varchar(255)
+                  constraints:
+                    unique: true
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: lemma(50)
+            indexName: lemmas_lemma
+            tableName: lemmas
+        - createTable:
+            tableName: site_lemmas
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: site_id
+                  type: int
+                  constraints:
+                    foreignKeyName: site_lemmas_site_fk
+                    referencedTableName: sites
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: lemma_id
+                  type: int
+                  constraints:
+                    foreignKeyName: site_lemmas_lemma_fk
+                    referencedTableName: lemmas
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: frequency
+                  type: int
+                  constraints:
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: site_id
+              - column:
+                  name: lemma_id
+            indexName: site_lemmas_site_id_lemma_id
+            tableName: site_lemmas
+            unique: true
+        - createTable:
+            tableName: indexes
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: page_id
+                  type: int
+                  constraints:
+                    foreignKeyName: indexes_pages_fk
+                    referencedTableName: pages
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: lemma_id
+                  type: int
+                  constraints:
+                    foreignKeyName: indexes_lemma_fk
+                    referencedTableName: lemmas
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: lemma_rank
+                  type: float
+                  constraints:
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: page_id
+              - column:
+                  name: lemma_id
+            indexName: indexes_page_id_lemma_id
+            tableName: indexes
+            unique: true
