@@ -19,5 +19,8 @@ public interface SiteRepository extends JpaRepository<Site, Integer> {
             "last_error=:#{#site.lastError}, site_url=:#{#site.url}, site_name=:#{#site.name}", nativeQuery = true)
     void insertOrUpdate(Site site);
 
+    @Query(value = "SELECT count(*) FROM sites s RIGHT JOIN site_lemmas sl ON s.id=sl.site_id WHERE s.id=:#{#site.id}", nativeQuery = true)
+    int lemmasCount(Site site);
+
     Optional<Site> findByUrl(String url);
 }

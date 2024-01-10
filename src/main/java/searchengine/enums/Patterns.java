@@ -5,22 +5,26 @@ import java.util.regex.Pattern;
 
 public enum Patterns {
 
+    END_LINE(". "),
     EMPTY_STRING(""),
     LINE_BREAK_PLACEHOLDER("..."),
-    MAX_SNIPPET_LENGTH("1000"),
+    MAX_SNIPPET_LENGTH("10000"),
     MAX_STRING_LENGTH("100"),
     MIDDLE_STRING_PART(""),
     FIRST_STRING_PART(""),
     LAST_STRING_PART(""),
-    HIGHLIGHTED_STRING_PART(" <b>%s</b> "),
+    LINE_SEPARATOR("\n"),
+    HIGHLIGHTED_STRING_PART("<b>%s</b>"),
     HTML_TAG_A("a"),
     HTML_TAG_ATTRIBUTE_HREF("href"),
     ONE_SPACE(" "),
+    REMOVE_REDUNDANT_DOTS("\\.\\.\\.+"),
     REMOVE_REDUNDANT_SPACES("\\s+"),
     REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS("\\s+(?=[,\\.\\?!])"),
     REMOVE_SPACES_AT_LINE_BEGINNING("^\\s+"),
+    REMOVE_REDUNDANT_SYMBOLS(""),
     SAMPLE("%s"),
-    STRING_SPLITTER("[\\.\\?!] ?"),
+    STRING_SPLITTER("(?<=(.|$))[\\.\\?!]"),
     WORD("\\w+");
 
     private final String pattern;
@@ -71,65 +75,82 @@ public enum Patterns {
             case MIDDLE_STRING_PART -> getMiddleStringPart(splitString(string));
             case LAST_STRING_PART -> getLastStringPart(splitString(string));
             case REMOVE_REDUNDANT_SPACES -> removeRedundantSpaces(string);
+            case REMOVE_REDUNDANT_DOTS -> removeRedundantDots(string);
+            case REMOVE_REDUNDANT_SYMBOLS -> removeRedundantSymbols(string);
             default -> string;
         };
     }
 
     private String getFirstStringPart(String[] strings) {
 
-        int maxStringLength = MAX_STRING_LENGTH.getIntValue();
-        String string = strings[0];
-        if (string.length() > maxStringLength) {
+        String string = strings[strings.length - 1];
+        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), false);
 
-            return LINE_BREAK_PLACEHOLDER.getStringValue()
-                    .concat(string.substring(string.length() - maxStringLength));
-        }
         return string;
     }
 
     private String getMiddleStringPart(String[] strings) {
 
-        int maxStringLength = MAX_STRING_LENGTH.getIntValue();
         String string = strings[0];
+        int maxStringLength = MAX_STRING_LENGTH.getIntValue();
 
         if (strings.length < 2) {
 
-            if (string.length() > maxStringLength) {
-
-                return string.substring(0, maxStringLength / 2)
-                        .concat(LINE_BREAK_PLACEHOLDER.getStringValue())
-                        .concat(string.substring(string.length() - maxStringLength / 2));
-            }
-
-            return string;
-
+            return trimString(string, maxStringLength / 2, true)
+                    .concat(trimString(string, maxStringLength / 2, false));
         }
 
-        return getLastStringPart(strings).concat(" ")
-                .concat(getFirstStringPart(strings));
+        return trimString(string, maxStringLength / 2, true)
+                .concat(trimString(strings[strings.length - 1], maxStringLength / 2, false));
     }
 
     private String getLastStringPart(String[] strings) {
 
-        int maxStringLength = MAX_STRING_LENGTH.getIntValue();
-        String string = strings[strings.length - 1];
-        if (string.length() > maxStringLength) {
+        String string = strings[0];
+        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), true);
 
-            return string.substring(0, maxStringLength)
-                    .concat(LINE_BREAK_PLACEHOLDER.getStringValue());
+        return string;
+    }
+
+    private String trimString(String string, int size, boolean trimEndString) {
+
+        if (string.length() > size) {
+
+            int spaceIndex = string.indexOf(Patterns.ONE_SPACE.pattern,
+                    trimEndString ? 1 : -1 * (size - string.length()));
+
+            string = trimEndString ? string.substring(0, spaceIndex) :
+                    string.substring(spaceIndex);
+
+            string = trimEndString ? string.concat(LINE_BREAK_PLACEHOLDER.getStringValue()) :
+                    LINE_BREAK_PLACEHOLDER.getStringValue().concat(string);
         }
+
         return string;
     }
 
     private String[] splitString(String string) {
 
-        return string.split(Patterns.STRING_SPLITTER.getStringValue());
+        return string.split(STRING_SPLITTER.pattern);
+    }
+
+    private String removeRedundantSymbols(String string) {
+
+        string = removeRedundantSpaces(string);
+        string = removeRedundantDots(string);
+
+        return string;
     }
 
     private String removeRedundantSpaces(String string) {
 
-        return string.replaceAll(pattern, ONE_SPACE.pattern)
+        return string.replaceAll(REMOVE_REDUNDANT_SPACES.pattern, ONE_SPACE.pattern)
                 .replaceAll(REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS.pattern, EMPTY_STRING.pattern)
                 .replaceAll(REMOVE_SPACES_AT_LINE_BEGINNING.pattern, EMPTY_STRING.pattern);
+    }
+
+    private String removeRedundantDots(String string) {
+
+        return string.replaceAll(REMOVE_REDUNDANT_DOTS.pattern, LINE_BREAK_PLACEHOLDER.pattern);
     }
 }

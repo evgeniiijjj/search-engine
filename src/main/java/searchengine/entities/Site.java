@@ -22,23 +22,25 @@ public class Site {
     private Integer id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "site_status", columnDefinition = "enum")
-    @Nonnull
+    @Column(name = "site_status",
+            columnDefinition = "enum",
+            nullable = false)
     private volatile Statuses status;
 
-    @Column(name = "status_time")
-    @Nonnull
+    @Column(name = "status_time",
+            nullable = false)
     private volatile Instant statusTime;
 
     @Column(name = "last_error")
     private volatile String lastError;
 
-    @Column(name = "site_url")
-    @Nonnull
+    @Column(name = "site_url",
+            unique = true,
+            nullable = false)
     private String url;
 
-    @Column(name = "site_name")
-    @Nonnull
+    @Column(name = "site_name",
+            nullable = false)
     private String name;
 
 

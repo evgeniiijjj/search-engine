@@ -7,20 +7,19 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
-import searchengine.entities.*;
+import searchengine.entities.Index;
+import searchengine.entities.Lemma;
+import searchengine.entities.Page;
+import searchengine.entities.Site;
 import searchengine.enums.Statuses;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
-import searchengine.repositories.SiteLemmaRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.utils.LemmaProcessor;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -31,9 +30,10 @@ public class IndexingPageTask implements IndexingTask {
 
     private final SiteRepository siteRepository;
     private final LemmaRepository lemmaRepository;
-    private final SiteLemmaRepository siteLemmaRepository;
     private final IndexRepository indexRepository;
 
+    @Nullable
+    private Set<Lemma> oldPageLemmas;
     @Nullable
     private Page page;
 
@@ -41,6 +41,7 @@ public class IndexingPageTask implements IndexingTask {
     public IndexingPageTask setPage(Page page) {
 
         this.page = page;
+        fillOldPageLemmas();
         return this;
     }
 
@@ -53,21 +54,29 @@ public class IndexingPageTask implements IndexingTask {
 
         try {
 
-            Set<Map.Entry<Lemma, Integer>> lemmas = LemmaProcessor
-                    .getRussianLemmas(text)
-                    .stream()
-                    .map(WordformMeaning::toString)
-                    .collect(
-                            Collectors.toMap(
-                                    lemma -> lemma,
-                                    lemma -> 1,
-                                    Integer::sum
+            Map<Lemma, Integer> lemmas =
+                    LemmaProcessor
+                            .getRussianLemmas(text)
+                            .stream()
+                            .map(WordformMeaning::toString)
+                            .collect(
+                                    Collectors.toMap(
+                                            lemma -> lemma,
+                                            lemma -> 1,
+                                            Integer::sum
+                                    )
                             )
-                    )
-                    .entrySet()
-                    .stream()
-                    .map(this::saveLemma)
-                    .collect(Collectors.toSet());
+                            .entrySet()
+                            .stream()
+                            .map(this::saveLemma)
+                            .collect(Collectors
+                                    .toMap(
+                                            Map.Entry::getKey,
+                                            Map.Entry::getValue
+                                    )
+                            );
+
+            deleteOldPageLemmas();
 
             deleteOldPageIndexes(page);
 
@@ -107,62 +116,56 @@ public class IndexingPageTask implements IndexingTask {
 
         if (optional.isPresent()) {
 
-           lemma = optional.get();
-        }
+            lemma = optional.get();
 
-        saveSiteLemma(lemma);
+            assert oldPageLemmas != null;
+            oldPageLemmas.remove(lemma);
+
+            assert page != null;
+            lemmaRepository.insertLemmaSite(lemma, page.getSite());
+        }
 
         return new DefaultMapEntry<>(lemma, lemmaEntry.getValue());
     }
 
-    private void saveSiteLemma(Lemma lemma) {
+    private void saveIndexes(Map<Lemma, Integer> lemmas) {
 
         assert page != null;
-        SiteLemma siteLemma =
-                new SiteLemma(page.getSite(), lemma);
-
-        siteLemmaRepository.insertOrUpdate(siteLemma);
-    }
-
-    private void saveIndexes(Set<Map.Entry<Lemma, Integer>> entries) {
-
-        assert page != null;
-        entries
+        List<Index> indexes = lemmas
+                .entrySet()
                 .stream()
                 .map(entry ->
                         new Index(
                                 page,
                                 entry.getKey(),
-                                (float) entry.getValue() / entries.size()
+                                (float) entry.getValue() / lemmas.size()
                             )
                 )
-                .forEach(indexRepository::insertIndex);
+                .toList();
+
+        indexRepository.saveAllAndFlush(indexes);
+    }
+
+    private void deleteOldPageLemmas() {
+
+        assert oldPageLemmas != null;
+        oldPageLemmas.forEach(
+            lemmaRepository::deleteLemmaSiteByLemma
+        );
     }
 
     private void deleteOldPageIndexes(Page page) {
 
-        List<Index> pageIndexes = indexRepository
-                .findAllByPageId(page.getId());
+        indexRepository.deleteAllByPage(page);
+    }
 
-        List<SiteLemma> siteLemmas = pageIndexes
+    private void fillOldPageLemmas() {
+
+        oldPageLemmas = new HashSet<>();
+        indexRepository
+                .findAllByPage(page)
                 .stream()
                 .map(Index::getLemma)
-                .map(lemma -> siteLemmaRepository
-                        .findBySiteAndLemma(page.getSite(), lemma))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
-
-        siteLemmas
-                .stream()
-                .filter(siteLemma -> siteLemma.getFrequency() < 2)
-                .forEach(siteLemmaRepository::delete);
-
-        siteLemmas
-                .stream()
-                .filter(siteLemma -> siteLemma.getFrequency() > 1)
-                .forEach(siteLemmaRepository::updateSiteLemmaFrequency);
-
-        indexRepository.deleteAll(pageIndexes);
+                .forEach(oldPageLemmas::add);
     }
 }

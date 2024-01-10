@@ -7,30 +7,30 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.TextNode;
 import searchengine.config.SiteList;
-import searchengine.dto.IndexLemmaMining;
-import searchengine.dto.LemmaMining;
-import searchengine.dto.PageLemmas;
-import searchengine.dto.SearchResult;
+import searchengine.dto.*;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
-import searchengine.entities.SiteLemma;
 import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
-import searchengine.repositories.*;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.utils.LemmaProcessor;
+import searchengine.services.utils.NodeTextProcessor;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 @org.springframework.stereotype.Service
@@ -42,7 +42,6 @@ public class ServiceImpl implements Service {
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
-    private final SiteLemmaRepository siteLemmaRepository;
     private final IndexRepository indexRepository;
 
     @Override
@@ -98,24 +97,23 @@ public class ServiceImpl implements Service {
     @Override
     public boolean indexPage(String url) {
 
-        if (!url.endsWith("/")) {
-            url = url.concat("/");
-        }
+        String siteUrl;
+        String path;
 
-        String[] urlParts = url.split("/", 4);
+        try {
+            URI uri = new URI(url);
+            siteUrl = uri.getScheme()
+                    .concat("://")
+                    .concat(uri.getHost());
+            path = uri.getPath();
 
-        if (urlParts.length < 4) {
+        } catch (URISyntaxException e) {
+
             return false;
         }
 
-        String path = "/".concat(urlParts[3]);
-
-        String urlSite = urlParts[0]
-                .concat("//")
-                .concat(urlParts[2]);
-
         Optional<Site> optional = siteRepository
-                .findByUrl(urlSite);
+                .findByUrl(siteUrl);
 
         if (optional.isEmpty()) {
 
@@ -157,7 +155,7 @@ public class ServiceImpl implements Service {
                                 site.getStatusTime().toEpochMilli(),
                                 site.getLastError(),
                                 pageRepository.countBySite(site),
-                                siteLemmaRepository.countBySite(site)
+                                siteRepository.lemmasCount(site)
                         )
                 )
                 .toList();
@@ -191,13 +189,6 @@ public class ServiceImpl implements Service {
                 .stream()
                 .map(entry -> lemmaRepository
                         .findByLemma(entry.getKey())
-                        .flatMap(lemma -> siteOptional
-                                .map(site -> siteLemmaRepository
-                                        .findBySiteAndLemma(site, lemma)
-                                        .map(SiteLemma::getLemma)
-                                )
-                                .orElse(Optional.of(lemma))
-                        )
                         .map(lemma ->
                                 new DefaultMapEntry<>(
                                         lemma,
@@ -208,10 +199,14 @@ public class ServiceImpl implements Service {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .flatMap(entry -> indexRepository
-                        .findAllByLemma(entry.getKey())
+                        .findAllByLemma(entry.getKey(), 10000)
                         .stream()
-                        .filter(index -> siteOptional.map(site ->
-                                        site.equals(index.getPage().getSite())).orElse(true)
+                        .filter(index ->
+                                siteOptional
+                                        .map(site ->
+                                                site.equals(index.getPage().getSite())
+                                        )
+                                        .orElse(true)
                         )
                         .map(index ->
                                 new IndexLemmaMining(
@@ -247,133 +242,54 @@ public class ServiceImpl implements Service {
 
         Document document = Jsoup.parse(pageLemmas.page().getContent());
 
-        String textContents = document
+        return document
                 .body()
                 .getAllElements()
                 .textNodes()
                 .stream()
                 .filter(textNode -> !textNode.isBlank())
                 .map(TextNode::text)
-                .filter(text -> pageLemmas
+                .distinct()
+                .map(NodeTextProcessor::new)
+                .peek(ntp -> pageLemmas
                         .lemmas()
                         .stream()
                         .map(LemmaMining::meaning)
                         .map(WordformMeaning::getTransformations)
                         .flatMap(List::stream)
                         .map(WordformMeaning::toString)
-                        .anyMatch(text::contains)
-                )
-                .reduce(
-                        new StringBuilder(),
-                        (builder, s) -> builder
-                                .append(" ")
-                                .append(s),
-                        StringBuilder::append
-                )
-                .toString();
-
-        Map<Integer, Integer> meaningsPosition = pageLemmas
-                .lemmas()
-                .stream()
-                .flatMap(lemmaMining -> lemmaMining.meaning()
-                        .getTransformations()
-                        .stream()
-                        .map(WordformMeaning::toString)
-                        .flatMap(meaning ->
-                                        Patterns.SAMPLE
-                                                .getPattern(meaning)
-                                                .matcher(textContents.toLowerCase())
-                                                .results()
-                                                .map(result ->
-                                                        new DefaultMapEntry<>(
-                                                                result.start(),
-                                                                result.end()
-                                                        )
-                                                )
+                        .filter(ntp::containsMeaning)
+                        .distinct()
+                        .forEach(meaning -> Patterns.SAMPLE
+                                .getPattern(meaning)
+                                .matcher(ntp.getText().toLowerCase())
+                                .results()
+                                .forEach(result ->
+                                        ntp.addPosition(
+                                                result.start(),
+                                                result.end()
+                                        )
+                                )
                         )
                 )
-                .collect(
-                        Collectors.toMap(
-                                Map.Entry::getKey,
-                                Map.Entry::getValue,
-                                Integer::max
+                .filter(NodeTextProcessor::isWordMeaningPositionsNotEmpty)
+                .map(ntp ->
+                        new Snippet(
+                                ntp.getSnippetPart(),
+                                ntp.getWordMeaningCount()
                         )
-                );
-
-        return meaningsPosition.isEmpty() ? Optional.empty() :
-                Optional.of(
+                )
+                .reduce(Snippet::accumulate)
+                .map(snippet ->
                         new SearchResult(
                                 pageLemmas.page().getSite().getUrl(),
                                 pageLemmas.page().getSite().getName(),
                                 pageLemmas.page().getPath(),
                                 document.title(),
-                                buildSnippet(textContents, meaningsPosition),
+                                snippet.toString(),
                                 pageLemmas.relevance(),
-                                meaningsPosition.size()
+                                snippet.wordMeaningCount()
                         )
                 );
-    }
-
-    private String buildSnippet(String textContent, Map<Integer, Integer> meaningsPosition) {
-
-        StringBuilder snippetBuilder = new StringBuilder();
-
-        AtomicInteger prevPos = new AtomicInteger();
-        prevPos.set(textContent.length());
-
-        List<String> strings = meaningsPosition
-                .entrySet()
-                .stream()
-                .flatMap(entry -> prevPos.getAndSet(0) == textContent.length() ?
-                        Stream.of(
-                                entry.getKey(),
-                                entry.getValue(),
-                                textContent.length()
-                        ) :
-                        Stream.of(
-                                entry.getKey(),
-                                entry.getValue()
-                        )
-                )
-                .sorted()
-                .map(pos -> textContent
-                        .substring(prevPos.getAndSet(pos), pos)
-                )
-                .toList();
-
-        for (int i = 0; i < strings.size(); i++) {
-
-            if (i % 2 == 0) {
-
-                if (i == strings.size() - 1) {
-
-                    snippetBuilder.append(Patterns.FIRST_STRING_PART
-                            .modifyString(strings.get(i)));
-                } else if (i > 0){
-
-                    snippetBuilder.append(Patterns.MIDDLE_STRING_PART
-                            .modifyString(strings.get(i)));
-                } else {
-
-                    snippetBuilder.append(Patterns.LAST_STRING_PART
-                            .modifyString(strings.get(i)));
-                }
-
-                if (snippetBuilder.length() > Patterns.MAX_SNIPPET_LENGTH.getIntValue()) {
-
-                    break;
-                }
-
-            } else {
-                snippetBuilder
-                        .append(
-                                Patterns.HIGHLIGHTED_STRING_PART
-                                .getStringValue(strings.get(i))
-                        );
-            }
-        }
-
-        return Patterns.REMOVE_REDUNDANT_SPACES
-                .modifyString(snippetBuilder.toString());
     }
 }

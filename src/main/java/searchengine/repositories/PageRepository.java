@@ -10,10 +10,10 @@ import searchengine.entities.Site;
 import java.util.Optional;
 
 
-@Transactional
 public interface PageRepository extends JpaRepository<Page, Integer> {
 
     @Modifying
+    @Transactional
     @Query(value = "INSERT INTO pages (site_id, page_path, code, page_content) " +
             "VALUES (:#{#page.siteId}, :#{#page.path}, :#{#page.code}, :#{#page.content}) " +
             "ON DUPLICATE KEY UPDATE code=:#{#page.code}, page_content=:#{#page.content}",

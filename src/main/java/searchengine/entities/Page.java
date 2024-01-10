@@ -23,15 +23,16 @@ public class Page {
     @JoinColumn(name = "site_id")
     private Site site;
 
-    @Column(name = "page_path")
-    @Nonnull
+    @Column(name = "page_path",
+            unique = true,
+            nullable = false)
     private String path;
 
-    @Nonnull
+    @Column(nullable = false)
     private Integer code;
 
-    @Column(name = "page_content")
-    @Nonnull
+    @Column(name = "page_content",
+            nullable = false)
     private String content;
 
     public Page(@Nonnull Site site,

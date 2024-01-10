@@ -29,8 +29,8 @@ public class Index implements Comparable<Index> {
     @Nonnull
     private Lemma lemma;
 
-    @Nonnull
-    @Column(name = "lemma_rank")
+    @Column(name = "lemma_rank",
+            nullable = false)
     private Float rank;
 
 

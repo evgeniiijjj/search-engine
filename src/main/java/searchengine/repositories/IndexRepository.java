@@ -6,23 +6,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
+import searchengine.entities.Page;
 
 import java.util.List;
 
 
-@Transactional
 public interface IndexRepository extends JpaRepository<Index, Integer> {
 
     @Modifying
-    @Query(value = "INSERT INTO indexes (page_id, lemma_id, lemma_rank) " +
-            "VALUES (:#{#index.pageId}, :#{#index.lemmaId}, :#{#index.rank}) " +
-            "ON DUPLICATE KEY UPDATE lemma_rank=:#{#index.rank}",
-            nativeQuery = true)
-    void insertIndex(Index index);
+    @Transactional
+    void deleteAllByPage(Page page);
 
-    @Query(value = "SELECT * FROM indexes WHERE page_id = :#{#pageId}",
-            nativeQuery = true)
-    List<Index> findAllByPageId(Integer pageId);
+    @Query(value = "SELECT * FROM indexes WHERE lemma_id=:#{#lemma.id} " +
+            "ORDER BY lemma_rank DESC LIMIT :#{#limit}", nativeQuery = true)
+    List<Index> findAllByLemma(Lemma lemma, int limit);
 
-    List<Index> findAllByLemma(Lemma lemma);
+    List<Index> findAllByPage(Page page);
 }

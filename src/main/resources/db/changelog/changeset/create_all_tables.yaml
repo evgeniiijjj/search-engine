@@ -106,47 +106,6 @@ databaseChangeLog:
             indexName: lemmas_lemma
             tableName: lemmas
         - createTable:
-            tableName: site_lemmas
-            columns:
-              - column:
-                  name: id
-                  type: int
-                  autoIncrement: true
-                  constraints:
-                    primaryKey: true
-              - column:
-                  name: site_id
-                  type: int
-                  constraints:
-                    foreignKeyName: site_lemmas_site_fk
-                    referencedTableName: sites
-                    referencedColumnNames: id
-                    onDelete: CASCADE
-                    nullable: false
-              - column:
-                  name: lemma_id
-                  type: int
-                  constraints:
-                    foreignKeyName: site_lemmas_lemma_fk
-                    referencedTableName: lemmas
-                    referencedColumnNames: id
-                    onDelete: CASCADE
-                    nullable: false
-              - column:
-                  name: frequency
-                  type: int
-                  constraints:
-                    nullable: false
-        - createIndex:
-            columns:
-              - column:
-                  name: site_id
-              - column:
-                  name: lemma_id
-            indexName: site_lemmas_site_id_lemma_id
-            tableName: site_lemmas
-            unique: true
-        - createTable:
             tableName: indexes
             columns:
               - column:
@@ -186,4 +145,40 @@ databaseChangeLog:
                   name: lemma_id
             indexName: indexes_page_id_lemma_id
             tableName: indexes
+            unique: true
+        - createIndex:
+            columns:
+              - column:
+                  name: lemma_rank
+            indexName: indexes_lemma_rank
+            tableName: indexes
+        - createTable:
+            tableName: site_lemmas
+            columns:
+              - column:
+                  name: site_id
+                  type: int
+                  constraints:
+                    foreignKeyName: site_lemmas_site_fk
+                    referencedTableName: sites
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
+                  name: lemma_id
+                  type: int
+                  constraints:
+                    foreignKeyName: site_lemmas_lemma_fk
+                    referencedTableName: lemmas
+                    referencedColumnNames: id
+                    onDelete: CASCADE
+                    nullable: false
+        - createIndex:
+            columns:
+              - column:
+                  name: site_id
+              - column:
+                  name: lemma_id
+            indexName: site_lemmas_site_id_lemma_id
+            tableName: site_lemmas
             unique: true
