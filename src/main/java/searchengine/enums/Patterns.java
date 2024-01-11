@@ -15,7 +15,7 @@ public enum Patterns {
     FIRST_STRING_PART(""),
     LAST_STRING_PART(""),
     LINE_SEPARATOR("\n"),
-    HIGHLIGHTED_STRING_PART("<b>%s</b>"),
+    HIGHLIGHTED_STRING_PART(" <b>%s</b>"),
     HTML_TAG_A("a"),
     HTML_TAG_ATTRIBUTE_HREF("href"),
     ONE_SPACE(" "),
@@ -121,14 +121,19 @@ public enum Patterns {
 
         if (string.length() > size) {
 
-            int spaceIndex = string.indexOf(Patterns.ONE_SPACE.pattern,
-                    trimEndString ? 1 : -1 * (size - string.length()));
+            int spaceIndex = trimEndString ? string.lastIndexOf(Patterns.ONE_SPACE.pattern, size) :
+                    string.indexOf(Patterns.ONE_SPACE.pattern, (size - string.length()));
 
             string = trimEndString ? string.substring(0, spaceIndex) :
                     string.substring(spaceIndex);
 
             string = trimEndString ? string.concat(LINE_BREAK_PLACEHOLDER.getStringValue()) :
                     LINE_BREAK_PLACEHOLDER.getStringValue().concat(string);
+        }
+
+        if (this == MIDDLE_STRING_PART && !trimEndString) {
+
+            return EMPTY_STRING.pattern;
         }
 
         return string;

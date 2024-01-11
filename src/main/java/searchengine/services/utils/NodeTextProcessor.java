@@ -59,13 +59,14 @@ public class NodeTextProcessor {
     public void addPosition(int start, int end) {
 
         wordMeaningPositions.add(
+                
                 new WordMeaningPosition(start, end)
         );
     }
 
     public boolean containsMeaning(String meaning) {
 
-        return text.contains(meaning);
+        return text.toLowerCase().contains(meaning);
     }
 
     public String getSnippetPart() {
@@ -96,6 +97,7 @@ public class NodeTextProcessor {
                                 pos
                         )
                 )
+                .filter(srt -> !srt.isEmpty())
                 .reduce(
                         new StringBuilder(),
                         this::buildString,
@@ -167,6 +169,11 @@ public class NodeTextProcessor {
                 return false;
             }
             WordMeaningPosition wmp = (WordMeaningPosition) o;
+
+            if (start != wmp.start) {
+
+                return false;
+            }
 
             if (wmp.end > end) {
 

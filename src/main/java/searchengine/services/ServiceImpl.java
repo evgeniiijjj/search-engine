@@ -225,6 +225,7 @@ public class ServiceImpl implements Service {
                 )
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .distinct()
                 .collect(Collectors
                         .toMap(
                                 Map.Entry::getKey,
