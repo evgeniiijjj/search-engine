@@ -25,7 +25,8 @@ public class ApiController {
                     .ok(Messages.SUCCESS.getMessage());
         }
         return ResponseEntity
-                .ok(Messages.FAILED_START.getMessage());
+                .badRequest()
+                .body(Messages.FAILED_START.getMessage());
     }
 
     @GetMapping("/stopIndexing")
@@ -36,7 +37,8 @@ public class ApiController {
                     .ok(Messages.SUCCESS.getMessage());
         }
         return ResponseEntity
-                .ok(Messages.FAILED_STOP.getMessage());
+                .badRequest()
+                .body(Messages.FAILED_STOP.getMessage());
     }
 
     @PostMapping(path = "/indexPage",
@@ -50,7 +52,8 @@ public class ApiController {
         }
 
         return ResponseEntity
-                .ok(Messages.FAILED_PAGE_INDEX.getMessage());
+                .badRequest()
+                .body(Messages.FAILED_PAGE_INDEX.getMessage());
     }
 
     @GetMapping("/statistics")
@@ -71,6 +74,7 @@ public class ApiController {
                 .ok(Messages.SUCCESS_SEARCH
                         .getMessage(results)))
                 .orElseGet(() -> ResponseEntity
-                .ok(Messages.FAILED_SEARCH.getMessage()));
+                        .badRequest()
+                        .body(Messages.FAILED_SEARCH.getMessage()));
     }
 }

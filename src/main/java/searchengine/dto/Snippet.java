@@ -2,6 +2,7 @@ package searchengine.dto;
 
 import searchengine.enums.Patterns;
 
+
 public record Snippet(
         String stringSnippet,
         int wordMeaningCount

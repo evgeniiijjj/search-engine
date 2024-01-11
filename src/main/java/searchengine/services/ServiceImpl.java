@@ -184,7 +184,7 @@ public class ServiceImpl implements Service {
                         )
                 );
 
-        return Optional.of(meaningMap
+        List<SearchResult> results = meaningMap
                 .entrySet()
                 .stream()
                 .map(entry -> lemmaRepository
@@ -199,7 +199,8 @@ public class ServiceImpl implements Service {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .flatMap(entry -> indexRepository
-                        .findAllByLemma(entry.getKey(), 10000)
+                        .findAllByLemmaOrderByRankDescLimit(entry.getKey(),
+                                Patterns.LIMIT_MOST_RELEVANT_INDEXES_COUNT.getIntValue())
                         .stream()
                         .filter(index ->
                                 siteOptional
@@ -235,7 +236,9 @@ public class ServiceImpl implements Service {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .sorted()
-                .toList());
+                .toList();
+
+        return results.isEmpty() ? Optional.empty() : Optional.of(results);
     }
 
     private Optional<SearchResult> getSearchResult(PageLemmas pageLemmas) {

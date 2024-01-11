@@ -8,6 +8,7 @@ public enum Patterns {
     END_LINE(". "),
     EMPTY_STRING(""),
     LINE_BREAK_PLACEHOLDER("..."),
+    LIMIT_MOST_RELEVANT_INDEXES_COUNT("10000"),
     MAX_SNIPPET_LENGTH("10000"),
     MAX_STRING_LENGTH("100"),
     MIDDLE_STRING_PART(""),
@@ -61,7 +62,9 @@ public enum Patterns {
 
         return switch (this) {
 
-            case MAX_STRING_LENGTH, MAX_SNIPPET_LENGTH ->
+            case MAX_STRING_LENGTH,
+                    MAX_SNIPPET_LENGTH,
+                    LIMIT_MOST_RELEVANT_INDEXES_COUNT ->
                     Integer.parseInt(this.pattern);
             default -> 0;
         };
