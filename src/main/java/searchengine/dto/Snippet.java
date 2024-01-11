@@ -5,13 +5,16 @@ import searchengine.enums.Patterns;
 
 public record Snippet(
         String stringSnippet,
-        int wordMeaningCount
+        int wordMeaningCount,
+        int maxMeaningContinuousSequence
 ) {
     public Snippet accumulate(Snippet snippet) {
 
         return new Snippet(
                accumulate(snippet.stringSnippet),
-               wordMeaningCount + snippet.wordMeaningCount
+               wordMeaningCount + snippet.wordMeaningCount,
+                Integer.max(maxMeaningContinuousSequence,
+                        snippet.maxMeaningContinuousSequence)
         );
     }
 

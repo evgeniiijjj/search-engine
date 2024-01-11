@@ -1,9 +1,12 @@
 package searchengine.services.utils;
 
+import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
+import searchengine.dto.PageLemmas;
 import searchengine.enums.Patterns;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -15,12 +18,32 @@ public class NodeTextProcessor {
 
     private final String text;
     private final Set<WordMeaningPosition> wordMeaningPositions;
+    private int maxMeaningsContinuousSequence;
+    private int counter;
 
-
-    public NodeTextProcessor(String text) {
+    public NodeTextProcessor(String text, PageLemmas pageLemmas) {
 
         this.text = text;
         wordMeaningPositions = new HashSet<>();
+        pageLemmas
+                .lemmas()
+                .stream()
+                .map(WordformMeaning::getTransformations)
+                .flatMap(List::stream)
+                .map(WordformMeaning::toString)
+                .filter(this::containsMeaning)
+                .distinct()
+                .forEach(meaning -> Patterns.SAMPLE
+                        .getPattern(meaning)
+                        .matcher(getText().toLowerCase())
+                        .results()
+                        .forEach(result ->
+                                addPosition(
+                                        result.start(),
+                                        result.end()
+                                )
+                        )
+                );
     }
 
     public boolean isWordMeaningPositionsNotEmpty() {
@@ -87,8 +110,19 @@ public class NodeTextProcessor {
 
         if (countPos % 2 > 0) {
 
+            counter++;
+
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
+        }
+
+        if (!str.equals(Patterns.ONE_SPACE.getStringValue())) {
+
+            if (counter > maxMeaningsContinuousSequence) {
+
+                maxMeaningsContinuousSequence = counter;
+            }
+            counter = 0;
         }
 
         if (prevPos == 0) {

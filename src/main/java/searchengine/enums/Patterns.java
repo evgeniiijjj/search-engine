@@ -8,10 +8,10 @@ public enum Patterns {
     END_LINE(". "),
     EMPTY_STRING(""),
     LINE_BREAK_PLACEHOLDER("..."),
-    LIMIT_MOST_RELEVANT_INDEXES_COUNT("10000"),
-    MAX_SNIPPET_LENGTH("10000"),
+    MAX_SNIPPET_LENGTH("500"),
     MAX_STRING_LENGTH("100"),
     MIDDLE_STRING_PART(""),
+    MOST_RELEVANT_INDEXES_COUNT_LIMIT("1000"),
     FIRST_STRING_PART(""),
     LAST_STRING_PART(""),
     LINE_SEPARATOR("\n"),
@@ -22,6 +22,7 @@ public enum Patterns {
     REMOVE_REDUNDANT_DOTS("\\.\\.\\.+"),
     REMOVE_REDUNDANT_SPACES("\\s+"),
     REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS("\\s+(?=[,\\.\\?!])"),
+    REMOVE_PUNCTUATION_MARKS("[\\.\\?!,:;]+"),
     REMOVE_SPACES_AT_LINE_BEGINNING("^\\s+"),
     REMOVE_REDUNDANT_SYMBOLS(""),
     SAMPLE("%s"),
@@ -64,7 +65,7 @@ public enum Patterns {
 
             case MAX_STRING_LENGTH,
                     MAX_SNIPPET_LENGTH,
-                    LIMIT_MOST_RELEVANT_INDEXES_COUNT ->
+                    MOST_RELEVANT_INDEXES_COUNT_LIMIT ->
                     Integer.parseInt(this.pattern);
             default -> 0;
         };
@@ -80,6 +81,7 @@ public enum Patterns {
             case REMOVE_REDUNDANT_SPACES -> removeRedundantSpaces(string);
             case REMOVE_REDUNDANT_DOTS -> removeRedundantDots(string);
             case REMOVE_REDUNDANT_SYMBOLS -> removeRedundantSymbols(string);
+            case REMOVE_PUNCTUATION_MARKS -> removePunctuationMarks(string);
             default -> string;
         };
     }
@@ -155,5 +157,10 @@ public enum Patterns {
     private String removeRedundantDots(String string) {
 
         return string.replaceAll(REMOVE_REDUNDANT_DOTS.pattern, LINE_BREAK_PLACEHOLDER.pattern);
+    }
+
+    private String removePunctuationMarks(String string) {
+
+        return string.replaceAll(REMOVE_PUNCTUATION_MARKS.pattern, EMPTY_STRING.pattern);
     }
 }

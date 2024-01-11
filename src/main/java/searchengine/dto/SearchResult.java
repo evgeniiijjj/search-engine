@@ -1,7 +1,7 @@
 package searchengine.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public record SearchResult(
         String site,
@@ -10,14 +10,20 @@ public record SearchResult(
         String title,
         String snippet,
         Float relevance,
+
         @JsonIgnore
-        Integer meaningsCount
+        Integer meaningsCount,
+
+        @JsonIgnore
+        Integer maxMeaningContinuousSequence
+
 ) implements Comparable<SearchResult> {
 
     @Override
     public int compareTo(SearchResult o) {
 
-        return o.meaningsCount.compareTo(meaningsCount) * 1000 +
+        return o.maxMeaningContinuousSequence.compareTo(maxMeaningContinuousSequence) * 1000 +
+                o.meaningsCount.compareTo(meaningsCount) * 100 +
                 o.relevance.compareTo(relevance);
     }
 }

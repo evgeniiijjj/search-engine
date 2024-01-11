@@ -12,6 +12,8 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.entities.Index;
+import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
 import searchengine.enums.Patterns;
@@ -171,64 +173,30 @@ public class ServiceImpl implements Service {
             String query, String siteUrl, int offset, int limit
     ) {
 
-        Optional<Site> siteOptional = siteRepository
-                .findByUrl(siteUrl);
+        Map<Lemma, WordformMeaning> lemmas = getLemmasMap(query);
 
-        Map<String, WordformMeaning> meaningMap = LemmaProcessor
-                .getRussianLemmas(query)
-                .stream()
-                .collect(Collectors
-                        .toMap(
-                                WordformMeaning::toString,
-                                meaning -> meaning
-                        )
-                );
+        Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
 
-        List<SearchResult> results = meaningMap
+        List<SearchResult> results = indexes
                 .entrySet()
                 .stream()
-                .map(entry -> lemmaRepository
-                        .findByLemma(entry.getKey())
-                        .map(lemma ->
-                                new DefaultMapEntry<>(
-                                        lemma,
-                                        entry.getValue()
-                                )
+                .map(entry ->
+                        new PageLemmas(
+                                entry.getKey(),
+                                entry
+                                        .getValue()
+                                        .stream()
+                                        .map(Index::getLemma)
+                                        .map(lemmas::get)
+                                        .toList(),
+                                entry
+                                        .getValue()
+                                        .stream()
+                                        .map(Index::getRank)
+                                        .reduce(Float::sum)
+                                        .orElse(0F)
                         )
                 )
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .flatMap(entry -> indexRepository
-                        .findAllByLemmaOrderByRankDescLimit(entry.getKey(),
-                                Patterns.LIMIT_MOST_RELEVANT_INDEXES_COUNT.getIntValue())
-                        .stream()
-                        .filter(index ->
-                                siteOptional
-                                        .map(site ->
-                                                site.equals(index.getPage().getSite())
-                                        )
-                                        .orElse(true)
-                        )
-                        .map(index ->
-                                new IndexLemmaMining(
-                                        index,
-                                        new LemmaMining(
-                                                entry.getKey().getLemma(),
-                                                entry.getValue()
-                                        )
-                                )
-                        )
-                )
-                .collect(Collectors
-                        .groupingBy(
-                                indexLemmaMining -> indexLemmaMining
-                                        .index()
-                                        .getPage()
-                        )
-                )
-                .entrySet()
-                .stream()
-                .map(PageLemmas::new)
                 .sorted()
                 .skip(offset)
                 .limit(limit)
@@ -241,45 +209,74 @@ public class ServiceImpl implements Service {
         return results.isEmpty() ? Optional.empty() : Optional.of(results);
     }
 
+    private Map<Lemma, WordformMeaning> getLemmasMap(String query) {
+
+        return LemmaProcessor
+                .getRussianLemmas(Patterns.REMOVE_PUNCTUATION_MARKS.modifyString(query))
+                .stream()
+                .map(wfm -> lemmaRepository
+                        .findByLemma(wfm.toString())
+                        .map(lemma ->
+                                new DefaultMapEntry<>(
+                                        lemma,
+                                        wfm
+                                )
+                        )
+                )
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors
+                        .toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue
+                        )
+                );
+    }
+
+    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordformMeaning> lemmas, String siteUrl) {
+
+        return lemmas
+                .keySet()
+                .stream()
+                .flatMap(lemma -> indexRepository
+                        .findAllByLemmaOrderByRankDescLimit(
+                                lemma,
+                                Patterns.MOST_RELEVANT_INDEXES_COUNT_LIMIT.getIntValue()
+                        )
+                        .stream()
+                )
+                .filter(index -> siteRepository
+                        .findByUrl(siteUrl)
+                        .map(site -> site
+                                .equals(index.getPage().getSite())
+                        )
+                        .orElse(true)
+                )
+                .collect(Collectors
+                        .groupingBy(
+                                Index::getPage
+                        )
+                );
+    }
+
     private Optional<SearchResult> getSearchResult(PageLemmas pageLemmas) {
 
         Document document = Jsoup.parse(pageLemmas.page().getContent());
 
-        return document
-                .body()
+        return document.body()
                 .getAllElements()
                 .textNodes()
                 .stream()
                 .filter(textNode -> !textNode.isBlank())
                 .map(TextNode::text)
                 .distinct()
-                .map(NodeTextProcessor::new)
-                .peek(ntp -> pageLemmas
-                        .lemmas()
-                        .stream()
-                        .map(LemmaMining::meaning)
-                        .map(WordformMeaning::getTransformations)
-                        .flatMap(List::stream)
-                        .map(WordformMeaning::toString)
-                        .filter(ntp::containsMeaning)
-                        .distinct()
-                        .forEach(meaning -> Patterns.SAMPLE
-                                .getPattern(meaning)
-                                .matcher(ntp.getText().toLowerCase())
-                                .results()
-                                .forEach(result ->
-                                        ntp.addPosition(
-                                                result.start(),
-                                                result.end()
-                                        )
-                                )
-                        )
-                )
+                .map(text -> new NodeTextProcessor(text, pageLemmas))
                 .filter(NodeTextProcessor::isWordMeaningPositionsNotEmpty)
                 .map(ntp ->
                         new Snippet(
                                 ntp.getSnippetPart(),
-                                ntp.getWordMeaningCount()
+                                ntp.getWordMeaningCount(),
+                                ntp.getMaxMeaningsContinuousSequence()
                         )
                 )
                 .reduce(Snippet::accumulate)
@@ -291,7 +288,8 @@ public class ServiceImpl implements Service {
                                 document.title(),
                                 snippet.toString(),
                                 pageLemmas.relevance(),
-                                snippet.wordMeaningCount()
+                                snippet.wordMeaningCount(),
+                                snippet.maxMeaningContinuousSequence()
                         )
                 );
     }
