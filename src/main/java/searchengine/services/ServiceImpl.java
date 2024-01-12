@@ -169,7 +169,7 @@ public class ServiceImpl implements Service {
     }
 
     @Override
-    public Optional<List<SearchResult>> getSearchResults(
+    public List<SearchResult> getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
 
@@ -177,7 +177,7 @@ public class ServiceImpl implements Service {
 
         Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
 
-        List<SearchResult> results = indexes
+        return indexes
                 .entrySet()
                 .stream()
                 .map(entry ->
@@ -205,8 +205,6 @@ public class ServiceImpl implements Service {
                 .map(Optional::get)
                 .sorted()
                 .toList();
-
-        return results.isEmpty() ? Optional.empty() : Optional.of(results);
     }
 
     private Map<Lemma, WordformMeaning> getLemmasMap(String query) {
@@ -273,14 +271,8 @@ public class ServiceImpl implements Service {
                 .distinct()
                 .map(text -> new NodeTextProcessor(text, pageLemmas))
                 .filter(NodeTextProcessor::isWordMeaningPositionsNotEmpty)
-                .map(ntp ->
-                        new Snippet(
-                                ntp.getSnippetPart(),
-                                ntp.getWordMeaningCount(),
-                                ntp.getMaxMeaningsContinuousSequence()
-                        )
-                )
-                .reduce(Snippet::accumulate)
+                .map(NodeTextProcessor::getSnippet)
+                .max(Snippet::compareTo)
                 .map(snippet ->
                         new SearchResult(
                                 pageLemmas.page().getSite().getUrl(),

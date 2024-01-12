@@ -69,12 +69,13 @@ public class ApiController {
                                     @RequestParam int offset,
                                     @RequestParam int limit) {
 
-        return service.getSearchResults(query, site, offset, limit)
-                .map(results -> ResponseEntity
-                .ok(Messages.SUCCESS_SEARCH
-                        .getMessage(results)))
-                .orElseGet(() -> ResponseEntity
-                        .badRequest()
-                        .body(Messages.FAILED_SEARCH.getMessage()));
+        if (query.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Messages.FAILED_SEARCH.getMessage());
+        }
+
+        return ResponseEntity.ok(Messages.SUCCESS_SEARCH
+                .getMessage(service.getSearchResults(query, site, offset, limit)));
     }
 }

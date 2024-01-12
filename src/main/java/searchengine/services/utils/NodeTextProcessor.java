@@ -3,6 +3,7 @@ package searchengine.services.utils;
 import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
 import searchengine.dto.PageLemmas;
+import searchengine.dto.Snippet;
 import searchengine.enums.Patterns;
 
 import java.util.HashSet;
@@ -59,7 +60,7 @@ public class NodeTextProcessor {
     public void addPosition(int start, int end) {
 
         wordMeaningPositions.add(
-                
+
                 new WordMeaningPosition(start, end)
         );
     }
@@ -69,7 +70,7 @@ public class NodeTextProcessor {
         return text.toLowerCase().contains(meaning);
     }
 
-    public String getSnippetPart() {
+    public Snippet getSnippet() {
 
         Set<Integer> meaningPositions =
                 wordMeaningPositions
@@ -87,7 +88,7 @@ public class NodeTextProcessor {
         AtomicInteger prevPos = new AtomicInteger();
         AtomicInteger countPos = new AtomicInteger();
 
-        return meaningPositions
+        String stringSnippet = meaningPositions
                 .stream()
                 .sorted()
                 .map(pos ->
@@ -97,13 +98,18 @@ public class NodeTextProcessor {
                                 pos
                         )
                 )
-                .filter(srt -> !srt.isEmpty())
+                .filter(str -> !str.isEmpty())
                 .reduce(
                         new StringBuilder(),
-                        this::buildString,
+                        StringBuilder::append,
                         StringBuilder::append
                 )
                 .toString();
+        return new Snippet(
+                stringSnippet,
+                getWordMeaningCount(),
+                maxMeaningsContinuousSequence
+        );
     }
 
     private String modifyString(int countPos, int prevPos, int currentPos) {
@@ -139,11 +145,6 @@ public class NodeTextProcessor {
         }
     }
 
-    public StringBuilder buildString(StringBuilder sb, String str) {
-
-        return sb.append(str);
-    }
-
     private static class WordMeaningPosition {
 
         private final int start;
@@ -175,10 +176,7 @@ public class NodeTextProcessor {
                 return false;
             }
 
-            if (wmp.end > end) {
-
-                end = wmp.end;
-            } else {
+            if (wmp.end < end) {
 
                 wmp.end = end;
             }

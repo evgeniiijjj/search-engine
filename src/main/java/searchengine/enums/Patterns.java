@@ -11,11 +11,11 @@ public enum Patterns {
     MAX_SNIPPET_LENGTH("500"),
     MAX_STRING_LENGTH("100"),
     MIDDLE_STRING_PART(""),
-    MOST_RELEVANT_INDEXES_COUNT_LIMIT("1000"),
+    MOST_RELEVANT_INDEXES_COUNT_LIMIT("10000"),
     FIRST_STRING_PART(""),
     LAST_STRING_PART(""),
     LINE_SEPARATOR("\n"),
-    HIGHLIGHTED_STRING_PART(" <b>%s</b>"),
+    HIGHLIGHTED_STRING_PART("<b>%s</b>"),
     HTML_TAG_A("a"),
     HTML_TAG_ATTRIBUTE_HREF("href"),
     ONE_SPACE(" "),
@@ -26,7 +26,7 @@ public enum Patterns {
     REMOVE_SPACES_AT_LINE_BEGINNING("^\\s+"),
     REMOVE_REDUNDANT_SYMBOLS(""),
     SAMPLE("%s"),
-    STRING_SPLITTER("(?<=(.|$))[\\.\\?!]"),
+    STRING_SPLITTER("(?<=[\\.\\?!]) "),
     WORD("\\w+");
 
     private final String pattern;
@@ -75,9 +75,9 @@ public enum Patterns {
 
         return switch(this) {
 
-            case FIRST_STRING_PART -> getFirstStringPart(splitString(string));
-            case MIDDLE_STRING_PART -> getMiddleStringPart(splitString(string));
-            case LAST_STRING_PART -> getLastStringPart(splitString(string));
+            case FIRST_STRING_PART -> getFirstStringPart(string);
+            case MIDDLE_STRING_PART -> getMiddleStringPart(string);
+            case LAST_STRING_PART -> getLastStringPart(string);
             case REMOVE_REDUNDANT_SPACES -> removeRedundantSpaces(string);
             case REMOVE_REDUNDANT_DOTS -> removeRedundantDots(string);
             case REMOVE_REDUNDANT_SYMBOLS -> removeRedundantSymbols(string);
@@ -86,33 +86,38 @@ public enum Patterns {
         };
     }
 
-    private String getFirstStringPart(String[] strings) {
+    private String getFirstStringPart(String string) {
 
-        String string = strings[strings.length - 1];
-        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), false);
+        string = LINE_BREAK_PLACEHOLDER.pattern
+                .concat(trimString(string, MAX_STRING_LENGTH.getIntValue(), false));
 
         return string;
     }
 
-    private String getMiddleStringPart(String[] strings) {
+    private String getMiddleStringPart(String string) {
 
-        String string = strings[0];
         int maxStringLength = MAX_STRING_LENGTH.getIntValue();
 
-        if (strings.length < 2) {
+        if (string.length() > maxStringLength) {
 
-            return trimString(string, maxStringLength / 2, true)
-                    .concat(trimString(string, maxStringLength / 2, false));
+            String[] strings = STRING_SPLITTER.splitString(string);
+
+            String first = strings[0];
+
+            String last = strings[strings.length - 1];
+
+            return trimString(first, maxStringLength / 2, true)
+                    .concat(ONE_SPACE.pattern)
+                    .concat(LINE_BREAK_PLACEHOLDER.pattern)
+                    .concat(trimString(last, maxStringLength / 2, false));
         }
-
-        return trimString(string, maxStringLength / 2, true)
-                .concat(trimString(strings[strings.length - 1], maxStringLength / 2, false));
+        return string;
     }
 
-    private String getLastStringPart(String[] strings) {
+    private String getLastStringPart(String string) {
 
-        String string = strings[0];
-        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), true);
+        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), true)
+                .concat(LINE_BREAK_PLACEHOLDER.pattern);
 
         return string;
     }
@@ -121,19 +126,16 @@ public enum Patterns {
 
         if (string.length() > size) {
 
-            int spaceIndex = trimEndString ? string.lastIndexOf(Patterns.ONE_SPACE.pattern, size) :
-                    string.indexOf(Patterns.ONE_SPACE.pattern, (size - string.length()));
+            int spaceIndex = trimEndString ? string.indexOf(Patterns.ONE_SPACE.pattern, size) :
+                    string.lastIndexOf(Patterns.ONE_SPACE.pattern, string.length() - size);
+
+            if (spaceIndex < 0) {
+
+                spaceIndex = size;
+            }
 
             string = trimEndString ? string.substring(0, spaceIndex) :
                     string.substring(spaceIndex);
-
-            string = trimEndString ? string.concat(LINE_BREAK_PLACEHOLDER.getStringValue()) :
-                    LINE_BREAK_PLACEHOLDER.getStringValue().concat(string);
-        }
-
-        if (this == MIDDLE_STRING_PART && !trimEndString) {
-
-            return EMPTY_STRING.pattern;
         }
 
         return string;

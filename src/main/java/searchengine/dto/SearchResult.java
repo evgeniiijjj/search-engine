@@ -1,7 +1,7 @@
 package searchengine.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 public record SearchResult(
         String site,

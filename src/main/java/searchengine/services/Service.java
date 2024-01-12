@@ -13,5 +13,5 @@ public interface Service {
     boolean indexPage(String url);
 
     StatisticsResponse getStatistics();
-    Optional<List<SearchResult>> getSearchResults(String query, String site, int offset, int limit);
+    List<SearchResult> getSearchResults(String query, String site, int offset, int limit);
 }
