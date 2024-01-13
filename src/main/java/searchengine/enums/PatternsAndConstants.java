@@ -1,10 +1,12 @@
 package searchengine.enums;
 
+import java.util.Arrays;
 import java.util.regex.Pattern;
 
 
-public enum Patterns {
+public enum PatternsAndConstants {
 
+    COMA(","),
     END_LINE(". "),
     EMPTY_STRING(""),
     LINE_BREAK_PLACEHOLDER("..."),
@@ -16,8 +18,11 @@ public enum Patterns {
     LAST_STRING_PART(""),
     LINE_SEPARATOR("\n"),
     HIGHLIGHTED_STRING_PART("<b>%s</b>"),
+    BREAK_LINE("<br/>"),
     HTML_TAG_A("a"),
     HTML_TAG_ATTRIBUTE_HREF("href"),
+    HTML_TEXT_TAG_NAMES("p,h1,h2,h3,h4,h5,h6,b,strong,i,em,u,pre," +
+            "sup,sub,small,address,mark,abbr,kdb,dfn,ins,del,s,q,blockquote,cite"),
     ONE_SPACE(" "),
     REMOVE_REDUNDANT_DOTS("\\.\\.\\.+"),
     REMOVE_REDUNDANT_SPACES("\\s+"),
@@ -32,7 +37,7 @@ public enum Patterns {
     private final String pattern;
 
 
-    Patterns(String pattern) {
+    PatternsAndConstants(String pattern) {
 
         this.pattern = pattern;
     }
@@ -53,7 +58,30 @@ public enum Patterns {
 
         if (strings.length == 1) {
 
-            return String.format(pattern, strings[0]);
+            String string = strings[0];
+
+            return switch(this) {
+
+                case FIRST_STRING_PART, MIDDLE_STRING_PART, LAST_STRING_PART ->
+                        trimString(string, MAX_STRING_LENGTH.getIntValue());
+
+                case REMOVE_REDUNDANT_SPACES ->
+                        removeRedundantSpaces(string);
+
+                case REMOVE_REDUNDANT_DOTS ->
+                        removeRedundantDots(string);
+
+                case REMOVE_REDUNDANT_SYMBOLS ->
+                        removeRedundantSymbols(string);
+
+                case REMOVE_PUNCTUATION_MARKS ->
+                        removePunctuationMarks(string);
+
+                case HIGHLIGHTED_STRING_PART, SAMPLE, WORD ->
+                        String.format(pattern, string);
+
+                default -> string;
+            };
         }
 
         return pattern;
@@ -71,74 +99,71 @@ public enum Patterns {
         };
     }
 
-    public String modifyString(String string) {
+    public boolean isHtmlTextTag(String tagName) {
 
-        return switch(this) {
+        return switch (this) {
 
-            case FIRST_STRING_PART -> getFirstStringPart(string);
-            case MIDDLE_STRING_PART -> getMiddleStringPart(string);
-            case LAST_STRING_PART -> getLastStringPart(string);
-            case REMOVE_REDUNDANT_SPACES -> removeRedundantSpaces(string);
-            case REMOVE_REDUNDANT_DOTS -> removeRedundantDots(string);
-            case REMOVE_REDUNDANT_SYMBOLS -> removeRedundantSymbols(string);
-            case REMOVE_PUNCTUATION_MARKS -> removePunctuationMarks(string);
-            default -> string;
+            case HTML_TEXT_TAG_NAMES ->
+                Arrays.asList(pattern.split(COMA.pattern))
+                        .contains(tagName);
+
+            default -> false;
         };
     }
 
-    private String getFirstStringPart(String string) {
+    private String trimString(String string, int size) {
 
-        string = LINE_BREAK_PLACEHOLDER.pattern
-                .concat(trimString(string, MAX_STRING_LENGTH.getIntValue(), false));
+        if (string.length() > size) {
 
-        return string;
-    }
-
-    private String getMiddleStringPart(String string) {
-
-        int maxStringLength = MAX_STRING_LENGTH.getIntValue();
-
-        if (string.length() > maxStringLength) {
-
-            String[] strings = STRING_SPLITTER.splitString(string);
+            String[] strings = splitString(string);
 
             String first = strings[0];
 
             String last = strings[strings.length - 1];
 
-            return trimString(first, maxStringLength / 2, true)
-                    .concat(ONE_SPACE.pattern)
-                    .concat(LINE_BREAK_PLACEHOLDER.pattern)
-                    .concat(trimString(last, maxStringLength / 2, false));
-        }
-        return string;
-    }
+            if (this == FIRST_STRING_PART) {
 
-    private String getLastStringPart(String string) {
-
-        string = trimString(string, MAX_STRING_LENGTH.getIntValue(), true)
-                .concat(LINE_BREAK_PLACEHOLDER.pattern);
-
-        return string;
-    }
-
-    private String trimString(String string, int size, boolean trimEndString) {
-
-        if (string.length() > size) {
-
-            int spaceIndex = trimEndString ? string.indexOf(Patterns.ONE_SPACE.pattern, size) :
-                    string.lastIndexOf(Patterns.ONE_SPACE.pattern, string.length() - size);
-
-            if (spaceIndex < 0) {
-
-                spaceIndex = size;
+                return last;
             }
 
-            string = trimEndString ? string.substring(0, spaceIndex) :
-                    string.substring(spaceIndex);
+            if (this == MIDDLE_STRING_PART) {
+
+                return LAST_STRING_PART.trimString(first, size / 2)
+                        .concat(ONE_SPACE.pattern)
+                        .concat(FIRST_STRING_PART.trimString(last, size / 2));
+            }
+
+            if (this == LAST_STRING_PART) {
+
+                if (first.length() > size) {
+
+                    first = first
+                            .substring(
+                                    0,
+                                    getSpaceIndex(first, size)
+                            )
+                            .concat(LINE_BREAK_PLACEHOLDER.pattern);
+                }
+                return first;
+            }
         }
 
         return string;
+    }
+
+    private int getSpaceIndex(String string, int indexFrom) {
+
+        int spaceIndex = string.lastIndexOf(
+                PatternsAndConstants.ONE_SPACE.pattern,
+                string.length() - indexFrom
+        );
+
+        if (spaceIndex < 0) {
+
+            spaceIndex = indexFrom;
+        }
+
+        return spaceIndex;
     }
 
     private String[] splitString(String string) {
@@ -150,7 +175,6 @@ public enum Patterns {
 
         string = removeRedundantSpaces(string);
         string = removeRedundantDots(string);
-
         return string;
     }
 

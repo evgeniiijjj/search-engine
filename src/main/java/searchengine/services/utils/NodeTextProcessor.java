@@ -4,7 +4,7 @@ import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.Snippet;
-import searchengine.enums.Patterns;
+import searchengine.enums.PatternsAndConstants;
 
 import java.util.HashSet;
 import java.util.List;
@@ -34,7 +34,7 @@ public class NodeTextProcessor {
                 .map(WordformMeaning::toString)
                 .filter(this::containsMeaning)
                 .distinct()
-                .forEach(meaning -> Patterns.SAMPLE
+                .forEach(meaning -> PatternsAndConstants.SAMPLE
                         .getPattern(meaning)
                         .matcher(getText().toLowerCase())
                         .results()
@@ -105,6 +105,7 @@ public class NodeTextProcessor {
                         StringBuilder::append
                 )
                 .toString();
+
         return new Snippet(
                 stringSnippet,
                 getWordMeaningCount(),
@@ -120,11 +121,11 @@ public class NodeTextProcessor {
 
             counter++;
 
-            return Patterns.HIGHLIGHTED_STRING_PART
+            return PatternsAndConstants.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
         }
 
-        if (!str.equals(Patterns.ONE_SPACE.getStringValue())) {
+        if (!str.equals(PatternsAndConstants.ONE_SPACE.getStringValue())) {
 
             if (counter > maxMeaningsContinuousSequence) {
 
@@ -135,13 +136,13 @@ public class NodeTextProcessor {
 
         if (prevPos == 0) {
 
-            return Patterns.FIRST_STRING_PART.modifyString(str);
+            return PatternsAndConstants.FIRST_STRING_PART.getStringValue(str);
         } else if (currentPos == text.length()) {
 
-            return Patterns.LAST_STRING_PART.modifyString(str);
+            return PatternsAndConstants.LAST_STRING_PART.getStringValue(str);
         } else {
 
-            return Patterns.MIDDLE_STRING_PART.modifyString(str);
+            return PatternsAndConstants.MIDDLE_STRING_PART.getStringValue(str);
         }
     }
 
@@ -169,6 +170,7 @@ public class NodeTextProcessor {
 
                 return false;
             }
+
             WordMeaningPosition wmp = (WordMeaningPosition) o;
 
             if (start != wmp.start) {

@@ -3,6 +3,7 @@ package searchengine.services.tasks;
 import com.github.demidko.aot.WordformMeaning;
 import lombok.AllArgsConstructor;
 import org.apache.commons.collections4.keyvalue.DefaultMapEntry;
+import org.jsoup.Jsoup;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.lang.Nullable;
@@ -33,15 +34,13 @@ public class IndexingPageTask implements IndexingTask {
     private final IndexRepository indexRepository;
 
     @Nullable
-    private Set<Lemma> oldPageLemmas;
-    @Nullable
     private Page page;
 
     @Override
     public IndexingPageTask setPage(Page page) {
 
         this.page = page;
-        fillOldPageLemmas();
+        deleteOldIndexes();
         return this;
     }
 
@@ -49,7 +48,7 @@ public class IndexingPageTask implements IndexingTask {
     public void run() {
 
         assert page != null;
-        String text = page.getContent();
+        String text = Jsoup.parse(page.getContent()).body().text();
         updateSiteStatus(Statuses.INDEXING, null);
 
         try {
@@ -68,7 +67,10 @@ public class IndexingPageTask implements IndexingTask {
                             )
                             .entrySet()
                             .stream()
+                            .distinct()
                             .map(this::saveLemma)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
                             .collect(Collectors
                                     .toMap(
                                             Map.Entry::getKey,
@@ -76,15 +78,11 @@ public class IndexingPageTask implements IndexingTask {
                                     )
                             );
 
-            deleteOldPageLemmas();
-
-            deleteOldPageIndexes(page);
-
             saveIndexes(lemmas);
 
             updateSiteStatus(Statuses.INDEXED, null);
 
-        } catch (Exception e) {
+        }catch (Exception e) {
 
             updateSiteStatus(Statuses.FAILED, e.getMessage());
 
@@ -105,33 +103,28 @@ public class IndexingPageTask implements IndexingTask {
         siteRepository.save(site);
     }
 
-    private Map.Entry<Lemma, Integer> saveLemma(Map.Entry<String, Integer> lemmaEntry) {
+    private Optional<Map.Entry<Lemma, Integer>> saveLemma(Map.Entry<String, Integer> lemmaEntry) {
 
         Lemma lemma = new Lemma(lemmaEntry.getKey());
 
         lemmaRepository.insertLemma(lemma);
 
-        Optional<Lemma> optional = lemmaRepository
-                    .findByLemma(lemma.getLemma());
+        return lemmaRepository.findByLemma(lemma.getLemma()).map(
+                l -> {
+                    assert page != null;
+                    if (lemmaRepository.countLemmaSiteRowsByLemmaAndSite(l, page.getSite()) == 0) {
 
-        if (optional.isPresent()) {
-
-            lemma = optional.get();
-
-            assert oldPageLemmas != null;
-            oldPageLemmas.remove(lemma);
-
-            assert page != null;
-            lemmaRepository.insertLemmaSite(lemma, page.getSite());
-        }
-
-        return new DefaultMapEntry<>(lemma, lemmaEntry.getValue());
+                        lemmaRepository.insertLemmaSite(l, page.getSite());
+                    }
+                    return new DefaultMapEntry<>(l, lemmaEntry.getValue());
+                }
+        );
     }
 
     private void saveIndexes(Map<Lemma, Integer> lemmas) {
 
         assert page != null;
-        List<Index> indexes = lemmas
+        lemmas
                 .entrySet()
                 .stream()
                 .map(entry ->
@@ -141,31 +134,12 @@ public class IndexingPageTask implements IndexingTask {
                                 (float) entry.getValue() / lemmas.size()
                             )
                 )
-                .toList();
-
-        indexRepository.saveAllAndFlush(indexes);
+                .forEach(indexRepository::insertOrUpdate);
     }
 
-    private void deleteOldPageLemmas() {
+    private void deleteOldIndexes() {
 
-        assert oldPageLemmas != null;
-        oldPageLemmas.forEach(
-            lemmaRepository::deleteLemmaSiteByLemma
-        );
-    }
-
-    private void deleteOldPageIndexes(Page page) {
-
+        indexRepository.deleteAllSiteLemmasByPage(page);
         indexRepository.deleteAllByPage(page);
-    }
-
-    private void fillOldPageLemmas() {
-
-        oldPageLemmas = new HashSet<>();
-        indexRepository
-                .findAllByPage(page)
-                .stream()
-                .map(Index::getLemma)
-                .forEach(oldPageLemmas::add);
     }
 }

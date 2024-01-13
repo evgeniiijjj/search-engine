@@ -14,12 +14,17 @@ public interface SiteRepository extends JpaRepository<Site, Integer> {
     @Modifying
     @Transactional
     @Query(value = "INSERT INTO sites (site_status, status_time, last_error, site_url, site_name) " +
-            "VALUES (:#{#site.status}, :#{#site.statusTime}, :#{#site.lastError}, :#{#site.url}, :#{#site.name}) " +
-            "ON DUPLICATE KEY UPDATE site_status=:#{#site.status}, status_time=:#{#site.statusTime}, " +
-            "last_error=:#{#site.lastError}, site_url=:#{#site.url}, site_name=:#{#site.name}", nativeQuery = true)
+            "VALUES (:#{#site.status}, :#{#site.statusTime}, :#{#site.lastError}," +
+            ":#{#site.url}, :#{#site.name}) ON DUPLICATE KEY UPDATE " +
+            "site_status=:#{#site.status}, status_time=:#{#site.statusTime}, " +
+            "last_error=:#{#site.lastError}, site_url=:#{#site.url}, " +
+            "site_name=:#{#site.name}",
+            nativeQuery = true)
     void insertOrUpdate(Site site);
 
-    @Query(value = "SELECT count(*) FROM sites s RIGHT JOIN site_lemmas sl ON s.id=sl.site_id WHERE s.id=:#{#site.id}", nativeQuery = true)
+    @Query(value = "SELECT count(*) FROM sites s RIGHT JOIN site_lemmas sl " +
+            "ON s.id=sl.site_id WHERE s.id=:#{#site.id}",
+            nativeQuery = true)
     int lemmasCount(Site site);
 
     Optional<Site> findByUrl(String url);

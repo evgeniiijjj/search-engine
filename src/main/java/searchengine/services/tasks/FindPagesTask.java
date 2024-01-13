@@ -12,7 +12,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
-import searchengine.enums.Patterns;
+import searchengine.enums.PatternsAndConstants;
 import searchengine.enums.Statuses;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
@@ -115,13 +115,13 @@ public class FindPagesTask implements IndexingTask {
         String path = page.getPath();
 
         Elements elements = document.getElementsByTag(
-                Patterns.HTML_TAG_A.getStringValue()
+                PatternsAndConstants.HTML_TAG_A.getStringValue()
         );
 
         for (Element element : elements) {
 
             var newPath = element.attr(
-                    Patterns.HTML_TAG_ATTRIBUTE_HREF.getStringValue()
+                    PatternsAndConstants.HTML_TAG_ATTRIBUTE_HREF.getStringValue()
             );
 
             Page newPage = new Page(site, newPath);

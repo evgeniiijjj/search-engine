@@ -7,7 +7,7 @@ import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
-import searchengine.enums.Patterns;
+import searchengine.enums.PatternsAndConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,7 @@ public class LemmaProcessor {
 
     public static List<WordformMeaning> getRussianLemmas(String text) {
 
-        return Patterns.WORD.getPattern()
+        return PatternsAndConstants.WORD.getPattern()
                 .matcher(text)
                 .results()
                 .map(MatchResult::group)
@@ -42,7 +42,7 @@ public class LemmaProcessor {
                 !partOfSpeech.equals(PartOfSpeech.VerbalParticiple);
     }
 
-    private static List<String> getEnglishLemmas(String text) {
+    public static List<String> getEnglishLemmas(String text) {
 
         List<String> lemmas = new ArrayList<>();
 

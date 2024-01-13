@@ -5,9 +5,11 @@ import lombok.AllArgsConstructor;
 import org.apache.commons.collections4.keyvalue.DefaultMapEntry;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.TextNode;
+import org.jsoup.nodes.Element;
 import searchengine.config.SiteList;
-import searchengine.dto.*;
+import searchengine.dto.PageLemmas;
+import searchengine.dto.SearchResult;
+import searchengine.dto.Snippet;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -16,7 +18,7 @@ import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
-import searchengine.enums.Patterns;
+import searchengine.enums.PatternsAndConstants;
 import searchengine.enums.Statuses;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -197,20 +199,22 @@ public class ServiceImpl implements Service {
                                         .orElse(0F)
                         )
                 )
-                .sorted()
-                .skip(offset)
-                .limit(limit)
                 .map(this::getSearchResult)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .sorted()
+                .skip(offset)
+                .limit(limit)
                 .toList();
     }
 
     private Map<Lemma, WordformMeaning> getLemmasMap(String query) {
 
         return LemmaProcessor
-                .getRussianLemmas(Patterns.REMOVE_PUNCTUATION_MARKS.modifyString(query))
+                .getRussianLemmas(
+                        PatternsAndConstants.REMOVE_PUNCTUATION_MARKS
+                                .getStringValue(query)
+                )
                 .stream()
                 .map(wfm -> lemmaRepository
                         .findByLemma(wfm.toString())
@@ -232,7 +236,8 @@ public class ServiceImpl implements Service {
                 );
     }
 
-    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordformMeaning> lemmas, String siteUrl) {
+    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordformMeaning> lemmas,
+                                                 String siteUrl) {
 
         return lemmas
                 .keySet()
@@ -240,7 +245,8 @@ public class ServiceImpl implements Service {
                 .flatMap(lemma -> indexRepository
                         .findAllByLemmaOrderByRankDescLimit(
                                 lemma,
-                                Patterns.MOST_RELEVANT_INDEXES_COUNT_LIMIT.getIntValue()
+                                PatternsAndConstants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
+                                        .getIntValue()
                         )
                         .stream()
                 )
@@ -264,11 +270,10 @@ public class ServiceImpl implements Service {
 
         return document.body()
                 .getAllElements()
-                .textNodes()
                 .stream()
-                .filter(textNode -> !textNode.isBlank())
-                .map(TextNode::text)
-                .distinct()
+                .map(this::getTextFromElement)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .map(text -> new NodeTextProcessor(text, pageLemmas))
                 .filter(NodeTextProcessor::isWordMeaningPositionsNotEmpty)
                 .map(NodeTextProcessor::getSnippet)
@@ -285,5 +290,18 @@ public class ServiceImpl implements Service {
                                 snippet.maxMeaningContinuousSequence()
                         )
                 );
+    }
+
+    private Optional<String> getTextFromElement(Element element) {
+
+        if (PatternsAndConstants.HTML_TEXT_TAG_NAMES
+                .isHtmlTextTag(element.nodeName())) {
+
+            return Optional.of(
+                    element.text()
+            );
+        }
+
+        return Optional.empty();
     }
 }

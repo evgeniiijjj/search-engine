@@ -14,19 +14,22 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
 
     @Modifying
     @Transactional
-    @Query(value = "INSERT IGNORE INTO lemmas (lemma) VALUES (:#{#lemma.lemma})", nativeQuery = true)
+    @Query(value = "INSERT IGNORE INTO lemmas (lemma) " +
+            "VALUES (:#{#lemma.lemma})",
+            nativeQuery = true)
     void insertLemma(Lemma lemma);
 
     @Modifying
     @Transactional
-    @Query(value = "DELETE FROM site_lemmas sl WHERE sl.lemma_id=:#{#lemma.id})", nativeQuery = true)
-    void deleteLemmaSiteByLemma(Lemma lemma);
-
-    @Modifying
-    @Transactional
-    @Query(value = "INSERT IGNORE INTO site_lemmas (site_id, lemma_id)" +
-            " VALUES (:#{#site.id}, :#{#lemma.id})", nativeQuery = true)
+    @Query(value = "INSERT IGNORE INTO site_lemmas (site_id, lemma_id) " +
+            "VALUES (:#{#site.id}, :#{#lemma.id})",
+            nativeQuery = true)
     void insertLemmaSite(Lemma lemma, Site site);
+
+    @Query(value = "SELECT EXISTS(SELECT * FROM site_lemmas sl " +
+            "WHERE sl.site_id=:#{#site.id} AND sl.lemma_id=:#{#lemma.id})",
+            nativeQuery = true)
+    long countLemmaSiteRowsByLemmaAndSite(Lemma lemma, Site site);
 
     Optional<Lemma> findByLemma(String lemma);
 }

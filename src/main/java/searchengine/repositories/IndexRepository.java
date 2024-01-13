@@ -15,11 +15,27 @@ public interface IndexRepository extends JpaRepository<Index, Integer> {
 
     @Modifying
     @Transactional
-    void deleteAllByPage(Page page);
+    @Query(value = "INSERT INTO indexes (page_id, lemma_id, lemma_rank) " +
+            "VALUES (:#{#index.pageId}, :#{#index.lemmaId}, :#{#index.rank}) " +
+            "ON DUPLICATE KEY UPDATE lemma_rank=:#{#index.rank}",
+            nativeQuery = true)
+    void insertOrUpdate(Index index);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM site_lemmas sl WHERE sl.lemma_id IN " +
+            "(SELECT ind.lemma_id FROM indexes ind WHERE ind.page_id=:#{#page.id})",
+            nativeQuery = true)
+    void deleteAllSiteLemmasByPage(Page page);
 
     @Query(value = "SELECT * FROM indexes WHERE lemma_id=:#{#lemma.id} " +
-            "ORDER BY lemma_rank DESC LIMIT :#{#limit}", nativeQuery = true)
+            "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
+            nativeQuery = true)
     List<Index> findAllByLemmaOrderByRankDescLimit(Lemma lemma, int limit);
 
-    List<Index> findAllByPage(Page page);
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM indexes ind WHERE ind.page_id=:#{#page.id}",
+            nativeQuery = true)
+    void deleteAllByPage(Page page);
 }
