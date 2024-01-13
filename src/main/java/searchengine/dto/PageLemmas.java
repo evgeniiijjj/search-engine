@@ -16,6 +16,7 @@ public record PageLemmas(
     @Override
     public int compareTo(PageLemmas o) {
 
-        return Integer.compare(o.lemmas.size(), lemmas.size());
+        return Integer.compare(o.lemmas.size(), lemmas.size()) * 1000 +
+                Float.compare(o.relevance, relevance);
     }
 }
