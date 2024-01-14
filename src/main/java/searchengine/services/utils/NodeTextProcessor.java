@@ -101,7 +101,11 @@ public class NodeTextProcessor {
                 .filter(str -> !str.isEmpty())
                 .reduce(
                         new StringBuilder(),
-                        StringBuilder::append,
+                        (sb, str) -> sb
+                                .append(
+                                        PatternsAndConstants.ONE_SPACE.getStringValue()
+                                )
+                                .append(str),
                         StringBuilder::append
                 )
                 .toString();
@@ -136,13 +140,16 @@ public class NodeTextProcessor {
 
         if (prevPos == 0) {
 
-            return PatternsAndConstants.FIRST_STRING_PART.getStringValue(str);
+            return PatternsAndConstants.FIRST_STRING_PART
+                    .getStringValue(str);
         } else if (currentPos == text.length()) {
 
-            return PatternsAndConstants.LAST_STRING_PART.getStringValue(str);
+            return PatternsAndConstants.LAST_STRING_PART
+                    .getStringValue(str);
         } else {
 
-            return PatternsAndConstants.MIDDLE_STRING_PART.getStringValue(str);
+            return PatternsAndConstants.MIDDLE_STRING_PART
+                    .getStringValue(str);
         }
     }
 

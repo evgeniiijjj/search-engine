@@ -22,8 +22,9 @@ public record SearchResult(
     @Override
     public int compareTo(SearchResult o) {
 
-        return o.maxMeaningContinuousSequence.compareTo(maxMeaningContinuousSequence) * 1000 +
-                o.meaningsCount.compareTo(meaningsCount) * 100 +
+        return o.maxMeaningContinuousSequence.compareTo(maxMeaningContinuousSequence) * 10000 +
+                o.meaningsCount.compareTo(meaningsCount) * 1000 +
+                Integer.compare(o.snippet.length(), snippet.length()) * 100 +
                 o.relevance.compareTo(relevance);
     }
 }

@@ -128,6 +128,11 @@ public enum PatternsAndConstants {
 
             if (this == MIDDLE_STRING_PART) {
 
+                if (first.equals(last)) {
+
+                    return first;
+                }
+
                 return LAST_STRING_PART.trimString(first, size / 2)
                         .concat(ONE_SPACE.pattern)
                         .concat(FIRST_STRING_PART.trimString(last, size / 2));
@@ -155,7 +160,7 @@ public enum PatternsAndConstants {
 
         int spaceIndex = string.lastIndexOf(
                 PatternsAndConstants.ONE_SPACE.pattern,
-                string.length() - indexFrom
+                indexFrom
         );
 
         if (spaceIndex < 0) {
