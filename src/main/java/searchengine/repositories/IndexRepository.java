@@ -15,14 +15,6 @@ public interface IndexRepository extends JpaRepository<Index, Integer> {
 
     @Modifying
     @Transactional
-    @Query(value = "INSERT INTO indexes (page_id, lemma_id, lemma_rank) " +
-            "VALUES (:#{#index.pageId}, :#{#index.lemmaId}, :#{#index.rank}) " +
-            "ON DUPLICATE KEY UPDATE lemma_rank=:#{#index.rank}",
-            nativeQuery = true)
-    void insertOrUpdate(Index index);
-
-    @Modifying
-    @Transactional
     @Query(value = "DELETE FROM site_lemmas sl WHERE sl.lemma_id IN " +
             "(SELECT ind.lemma_id FROM indexes ind WHERE ind.page_id=:#{#page.id})",
             nativeQuery = true)

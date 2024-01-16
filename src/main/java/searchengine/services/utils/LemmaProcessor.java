@@ -7,7 +7,7 @@ import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
-import searchengine.enums.PatternsAndConstants;
+import searchengine.enums.Patterns;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,7 @@ public class LemmaProcessor {
 
     public static List<WordformMeaning> getRussianLemmas(String text) {
 
-        return PatternsAndConstants.WORD.getPattern()
+        return Patterns.WORD.getRedexPattern()
                 .matcher(text)
                 .results()
                 .map(MatchResult::group)
@@ -28,6 +28,7 @@ public class LemmaProcessor {
                 .map(list -> list.get(0))
                 .filter(LemmaProcessor::partOfSpeechFilter)
                 .map(WordformMeaning::getLemma)
+                .distinct()
                 .toList();
     }
 
@@ -45,26 +46,17 @@ public class LemmaProcessor {
     public static List<String> getEnglishLemmas(String text) {
 
         List<String> lemmas = new ArrayList<>();
-
         Properties props = new Properties();
         props.put("annotators", "tokenize, ssplit, pos, lemma");
-
         StanfordCoreNLP lemmatizer = new StanfordCoreNLP(props);
-
         Annotation document = new Annotation(text);
-
         lemmatizer.annotate(document);
-
         List<CoreMap> sentences = document.get(CoreAnnotations.SentencesAnnotation.class);
-
         for(CoreMap sentence: sentences) {
-
             for (CoreLabel token: sentence.get(CoreAnnotations.TokensAnnotation.class)) {
-
                 lemmas.add(token.get(CoreAnnotations.LemmaAnnotation.class));
             }
         }
-
         return lemmas;
     }
 }

@@ -54,6 +54,12 @@ public class Index implements Comparable<Index> {
         return lemma.getId();
     }
 
+    public Index setLemmaId(int id) {
+
+        lemma.setId(id);
+        return this;
+    }
+
     @Override
     public int hashCode() {
         return (page.getSite().getUrl() +

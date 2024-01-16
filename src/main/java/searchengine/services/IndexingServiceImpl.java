@@ -18,17 +18,17 @@ import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
-import searchengine.enums.PatternsAndConstants;
+import searchengine.enums.Constants;
+import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.utils.LemmaProcessor;
-import searchengine.services.utils.NodeTextProcessor;
+import searchengine.services.utils.SnippetGenerator;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 @AllArgsConstructor
-public class ServiceImpl implements Service {
+public class IndexingServiceImpl implements IndexingService {
 
     private final SiteList list;
     private final IndexingManager indexingManager;
@@ -52,13 +52,9 @@ public class ServiceImpl implements Service {
     public boolean startIndexing() {
 
         if (indexingManager.isIndexing()) {
-
             return false;
         }
-
-        list
-                .getSites()
-                .stream()
+        list.getSites().stream()
                 .map(this::setStatusAndTime)
                 .peek(siteRepository::insertOrUpdate)
                 .map(Site::getUrl)
@@ -66,8 +62,13 @@ public class ServiceImpl implements Service {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(this::getRootPage)
-                .forEach(indexingManager::startFindPageTask);
-
+                .forEach(indexingManager::startIndexingPageTask);
+        try {
+            Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
+            indexingManager.startSaveIndexesTask();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         return true;
     }
 
@@ -90,11 +91,9 @@ public class ServiceImpl implements Service {
     public boolean stopIndexing() {
 
         if (indexingManager.isIndexing()) {
-
             indexingManager.stopIndexing();
             return true;
         }
-
         return false;
     }
 
@@ -103,38 +102,29 @@ public class ServiceImpl implements Service {
 
         String siteUrl;
         String path;
-
         try {
             URI uri = new URI(url);
             siteUrl = uri.getScheme()
                     .concat("://")
                     .concat(uri.getHost());
             path = uri.getPath();
-
-        } catch (URISyntaxException e) {
-
+        } catch (Exception e) {
             return false;
         }
-
         Optional<Site> optional = siteRepository
                 .findByUrl(siteUrl);
-
         if (optional.isEmpty()) {
-
             return false;
         }
-
         Site site = optional.get();
-
         indexingManager
-                .startFindPageWithoutSubpagesTask(new Page(site, path));
-
+                .startIndexingPageTask(new Page(site, path));
         try {
-            Thread.sleep(1000);
+            Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
+            indexingManager.startSaveIndexesTask();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
         return indexingManager.isIndexing();
     }
 
@@ -144,10 +134,9 @@ public class ServiceImpl implements Service {
         TotalStatistics totalStatistics = new TotalStatistics(
                 (int) siteRepository.count(),
                 (int) pageRepository.count(),
-                (int) lemmaRepository.count(),
+                (int) lemmaRepository.siteLemmaCount(),
                 indexingManager.isIndexing()
         );
-
         List<DetailedStatisticsItem> details = siteRepository
                 .findAll()
                 .stream()
@@ -163,7 +152,6 @@ public class ServiceImpl implements Service {
                         )
                 )
                 .toList();
-
         return new StatisticsResponse(
                 true,
                 new StatisticsData(totalStatistics, details)
@@ -174,11 +162,8 @@ public class ServiceImpl implements Service {
     public List<SearchResult> getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
-
         Map<Lemma, WordformMeaning> lemmas = getLemmasMap(query);
-
         Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
-
         return indexes
                 .entrySet()
                 .stream()
@@ -209,10 +194,9 @@ public class ServiceImpl implements Service {
     }
 
     private Map<Lemma, WordformMeaning> getLemmasMap(String query) {
-
         return LemmaProcessor
                 .getRussianLemmas(
-                        PatternsAndConstants.REMOVE_PUNCTUATION_MARKS
+                        Patterns.REMOVE_PUNCTUATION_MARKS
                                 .getStringValue(query)
                 )
                 .stream()
@@ -227,7 +211,6 @@ public class ServiceImpl implements Service {
                 )
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .distinct()
                 .collect(Collectors
                         .toMap(
                                 Map.Entry::getKey,
@@ -238,15 +221,13 @@ public class ServiceImpl implements Service {
 
     private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordformMeaning> lemmas,
                                                  String siteUrl) {
-
-        return lemmas
-                .keySet()
+        return lemmas.keySet()
                 .stream()
                 .flatMap(lemma -> indexRepository
                         .findAllByLemmaOrderByRankDescLimit(
                                 lemma,
-                                PatternsAndConstants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
-                                        .getIntValue()
+                                Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
+                                        .getValue()
                         )
                         .stream()
                 )
@@ -267,16 +248,15 @@ public class ServiceImpl implements Service {
     private Optional<SearchResult> getSearchResult(PageLemmas pageLemmas) {
 
         Document document = Jsoup.parse(pageLemmas.page().getContent());
-
         return document.body()
                 .getAllElements()
                 .stream()
                 .map(this::getTextFromElement)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(text -> new NodeTextProcessor(text, pageLemmas))
-                .filter(NodeTextProcessor::isWordMeaningPositionsNotEmpty)
-                .map(NodeTextProcessor::getSnippet)
+                .map(text -> new SnippetGenerator(text, pageLemmas))
+                .filter(SnippetGenerator::isMeaningPositionsNotEmpty)
+                .map(SnippetGenerator::getSnippet)
                 .max(Snippet::compareTo)
                 .map(snippet ->
                         new SearchResult(
@@ -294,14 +274,12 @@ public class ServiceImpl implements Service {
 
     private Optional<String> getTextFromElement(Element element) {
 
-        if (PatternsAndConstants.HTML_TEXT_TAG_NAMES
+        if (Patterns.HTML_TEXT_TAG_NAMES
                 .isHtmlTextTag(element.nodeName())) {
-
             return Optional.of(
                     element.text()
             );
         }
-
         return Optional.empty();
     }
 }

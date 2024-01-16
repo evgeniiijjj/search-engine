@@ -22,7 +22,6 @@ public enum Messages {
     }
 
     public Message getMessage() {
-
         return switch (this) {
             case SUCCESS -> new Message(true);
             case FAILED_PAGE_INDEX, FAILED_SEARCH, FAILED_START,
@@ -32,7 +31,6 @@ public enum Messages {
     }
 
     public Message getMessage(List<SearchResult> result) {
-
         if (this == SUCCESS_SEARCH) {
             return new SearchResultsMessage(result);
         }
@@ -42,18 +40,15 @@ public enum Messages {
     @Getter
     @AllArgsConstructor
     public static class Message {
-
         private boolean result;
     }
 
     @Getter
     public static class SearchResultsMessage extends Message {
-
         private final int count;
         private final List<SearchResult> data;
 
         public SearchResultsMessage(List<SearchResult> data) {
-
             super(true);
             this.count = data.size();
             this.data = data;

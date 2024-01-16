@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import searchengine.dto.PageDto;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.enums.Messages;
-import searchengine.services.Service;
+import searchengine.services.IndexingService;
 
 
 @AllArgsConstructor
@@ -15,12 +15,12 @@ import searchengine.services.Service;
 @RequestMapping("/api")
 public class ApiController {
 
-    private final Service service;
+    private final IndexingService indexingService;
 
     @GetMapping("/startIndexing")
     public ResponseEntity<?> startIndexing() {
 
-        if (service.startIndexing()) {
+        if (indexingService.startIndexing()) {
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
         }
@@ -32,7 +32,7 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public ResponseEntity<?> stopIndexing() {
 
-        if (service.stopIndexing()) {
+        if (indexingService.stopIndexing()) {
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
         }
@@ -45,12 +45,11 @@ public class ApiController {
             consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE})
     public ResponseEntity<?> indexPage(PageDto page) {
 
-        if (service.indexPage(page.url())) {
+        if (indexingService.indexPage(page.url())) {
 
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
         }
-
         return ResponseEntity
                 .badRequest()
                 .body(Messages.FAILED_PAGE_INDEX.getMessage());
@@ -60,7 +59,7 @@ public class ApiController {
     public ResponseEntity<StatisticsResponse> statistics() {
 
         return ResponseEntity
-                .ok(service.getStatistics());
+                .ok(indexingService.getStatistics());
     }
 
     @GetMapping("/search")
@@ -68,14 +67,12 @@ public class ApiController {
                                     @RequestParam(required = false) String site,
                                     @RequestParam int offset,
                                     @RequestParam int limit) {
-
         if (query.isEmpty()) {
             return ResponseEntity
                     .badRequest()
                     .body(Messages.FAILED_SEARCH.getMessage());
         }
-
         return ResponseEntity.ok(Messages.SUCCESS_SEARCH
-                .getMessage(service.getSearchResults(query, site, offset, limit)));
+                .getMessage(indexingService.getSearchResults(query, site, offset, limit)));
     }
 }

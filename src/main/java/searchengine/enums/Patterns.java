@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.regex.Pattern;
 
 
-public enum PatternsAndConstants {
+public enum Patterns {
 
     COMA(","),
     END_LINE(". "),
@@ -13,7 +13,6 @@ public enum PatternsAndConstants {
     MAX_SNIPPET_LENGTH("500"),
     MAX_STRING_LENGTH("100"),
     MIDDLE_STRING_PART(""),
-    MOST_RELEVANT_INDEXES_COUNT_LIMIT("10000"),
     FIRST_STRING_PART(""),
     LAST_STRING_PART(""),
     LINE_SEPARATOR("\n"),
@@ -37,19 +36,16 @@ public enum PatternsAndConstants {
     private final String pattern;
 
 
-    PatternsAndConstants(String pattern) {
-
+    Patterns(String pattern) {
         this.pattern = pattern;
     }
 
-    public Pattern getPattern(String... strings) {
+    public Pattern getRedexPattern(String... strings) {
 
         if (strings.length == 1) {
-
             return Pattern.compile(String.format(pattern,
                     strings[0]), Pattern.CASE_INSENSITIVE);
         }
-
         return Pattern.compile(pattern,
                     Pattern.UNICODE_CHARACTER_CLASS);
     }
@@ -57,56 +53,40 @@ public enum PatternsAndConstants {
     public String getStringValue(String... strings) {
 
         if (strings.length == 1) {
-
             String string = strings[0];
-
             return switch(this) {
-
                 case FIRST_STRING_PART, MIDDLE_STRING_PART, LAST_STRING_PART ->
                         trimString(string, MAX_STRING_LENGTH.getIntValue());
-
                 case REMOVE_REDUNDANT_SPACES ->
                         removeRedundantSpaces(string);
-
                 case REMOVE_REDUNDANT_DOTS ->
                         removeRedundantDots(string);
-
                 case REMOVE_REDUNDANT_SYMBOLS ->
                         removeRedundantSymbols(string);
-
                 case REMOVE_PUNCTUATION_MARKS ->
                         removePunctuationMarks(string);
-
                 case HIGHLIGHTED_STRING_PART, SAMPLE, WORD ->
                         String.format(pattern, string);
-
                 default -> string;
             };
         }
-
         return pattern;
     }
 
     public int getIntValue() {
-
         return switch (this) {
-
             case MAX_STRING_LENGTH,
-                    MAX_SNIPPET_LENGTH,
-                    MOST_RELEVANT_INDEXES_COUNT_LIMIT ->
+                    MAX_SNIPPET_LENGTH ->
                     Integer.parseInt(this.pattern);
             default -> 0;
         };
     }
 
     public boolean isHtmlTextTag(String tagName) {
-
         return switch (this) {
-
             case HTML_TEXT_TAG_NAMES ->
                 Arrays.asList(pattern.split(COMA.pattern))
                         .contains(tagName);
-
             default -> false;
         };
     }
@@ -114,34 +94,22 @@ public enum PatternsAndConstants {
     private String trimString(String string, int size) {
 
         if (string.length() > size) {
-
             String[] strings = splitString(string);
-
             String first = strings[0];
-
             String last = strings[strings.length - 1];
-
             if (this == FIRST_STRING_PART) {
-
                 return last;
             }
-
             if (this == MIDDLE_STRING_PART) {
-
                 if (first.equals(last)) {
-
                     return first;
                 }
-
                 return LAST_STRING_PART.trimString(first, size / 2)
                         .concat(ONE_SPACE.pattern)
                         .concat(FIRST_STRING_PART.trimString(last, size / 2));
             }
-
             if (this == LAST_STRING_PART) {
-
                 if (first.length() > size) {
-
                     first = first
                             .substring(
                                     0,
@@ -152,51 +120,42 @@ public enum PatternsAndConstants {
                 return first;
             }
         }
-
         return string;
     }
 
     private int getSpaceIndex(String string, int indexFrom) {
 
         int spaceIndex = string.lastIndexOf(
-                PatternsAndConstants.ONE_SPACE.pattern,
+                ONE_SPACE.pattern,
                 indexFrom
         );
-
         if (spaceIndex < 0) {
-
             spaceIndex = indexFrom;
         }
-
         return spaceIndex;
     }
 
     private String[] splitString(String string) {
-
         return string.split(STRING_SPLITTER.pattern);
     }
 
     private String removeRedundantSymbols(String string) {
-
         string = removeRedundantSpaces(string);
         string = removeRedundantDots(string);
         return string;
     }
 
     private String removeRedundantSpaces(String string) {
-
         return string.replaceAll(REMOVE_REDUNDANT_SPACES.pattern, ONE_SPACE.pattern)
                 .replaceAll(REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS.pattern, EMPTY_STRING.pattern)
                 .replaceAll(REMOVE_SPACES_AT_LINE_BEGINNING.pattern, EMPTY_STRING.pattern);
     }
 
     private String removeRedundantDots(String string) {
-
         return string.replaceAll(REMOVE_REDUNDANT_DOTS.pattern, LINE_BREAK_PLACEHOLDER.pattern);
     }
 
     private String removePunctuationMarks(String string) {
-
         return string.replaceAll(REMOVE_PUNCTUATION_MARKS.pattern, EMPTY_STRING.pattern);
     }
 }

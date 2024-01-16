@@ -4,28 +4,29 @@ import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.Snippet;
-import searchengine.enums.PatternsAndConstants;
+import searchengine.enums.Patterns;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
 @Getter
-public class NodeTextProcessor {
+public class SnippetGenerator {
 
     private final String text;
-    private final Set<WordMeaningPosition> wordMeaningPositions;
+    private final Map<Integer, Integer> meaningPositions;
     private int maxMeaningsContinuousSequence;
     private int counter;
 
-    public NodeTextProcessor(String text, PageLemmas pageLemmas) {
-
+    public SnippetGenerator(String text, PageLemmas pageLemmas) {
         this.text = text;
-        wordMeaningPositions = new HashSet<>();
+        meaningPositions = new HashMap<>();
+        fillWordMeaningPositions(pageLemmas);
+    }
+
+    private void fillWordMeaningPositions(PageLemmas pageLemmas) {
         pageLemmas
                 .lemmas()
                 .stream()
@@ -34,8 +35,8 @@ public class NodeTextProcessor {
                 .map(WordformMeaning::toString)
                 .filter(this::containsMeaning)
                 .distinct()
-                .forEach(meaning -> PatternsAndConstants.SAMPLE
-                        .getPattern(meaning)
+                .forEach(meaning -> Patterns.SAMPLE
+                        .getRedexPattern(meaning)
                         .matcher(getText().toLowerCase())
                         .results()
                         .forEach(result ->
@@ -47,48 +48,33 @@ public class NodeTextProcessor {
                 );
     }
 
-    public boolean isWordMeaningPositionsNotEmpty() {
-
-        return !wordMeaningPositions.isEmpty();
-    }
-
-    public int getWordMeaningCount() {
-
-        return wordMeaningPositions.size();
-    }
-
     public void addPosition(int start, int end) {
-
-        wordMeaningPositions.add(
-
-                new WordMeaningPosition(start, end)
-        );
+        if (!meaningPositions.containsKey(start) ||
+                meaningPositions.get(start) < end) {
+            meaningPositions.put(start, end);
+        }
     }
 
     public boolean containsMeaning(String meaning) {
-
         return text.toLowerCase().contains(meaning);
     }
 
     public Snippet getSnippet() {
-
-        Set<Integer> meaningPositions =
-                wordMeaningPositions
+        Set<Integer> positions =
+                meaningPositions
+                        .entrySet()
                         .stream()
-                        .flatMap(wmp ->
+                        .flatMap(entry ->
                                 Stream.of(
-                                        wmp.start,
-                                        wmp.end
+                                        entry.getKey(),
+                                        entry.getValue()
                                 )
                         )
                         .collect(Collectors.toSet());
-
-        meaningPositions.add(text.length());
-
+        positions.add(text.length());
         AtomicInteger prevPos = new AtomicInteger();
         AtomicInteger countPos = new AtomicInteger();
-
-        String stringSnippet = meaningPositions
+        String stringSnippet = positions
                 .stream()
                 .sorted()
                 .map(pos ->
@@ -101,18 +87,13 @@ public class NodeTextProcessor {
                 .filter(str -> !str.isEmpty())
                 .reduce(
                         new StringBuilder(),
-                        (sb, str) -> sb
-                                .append(
-                                        PatternsAndConstants.ONE_SPACE.getStringValue()
-                                )
-                                .append(str),
+                        StringBuilder::append,
                         StringBuilder::append
                 )
                 .toString();
-
         return new Snippet(
                 stringSnippet,
-                getWordMeaningCount(),
+                getMeaningPositionsCount(),
                 maxMeaningsContinuousSequence
         );
     }
@@ -120,77 +101,34 @@ public class NodeTextProcessor {
     private String modifyString(int countPos, int prevPos, int currentPos) {
 
         String str = text.substring(prevPos, currentPos);
-
         if (countPos % 2 > 0) {
-
             counter++;
-
-            return PatternsAndConstants.HIGHLIGHTED_STRING_PART
+            return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
         }
-
-        if (!str.equals(PatternsAndConstants.ONE_SPACE.getStringValue())) {
-
+        if (!str.equals(Patterns.ONE_SPACE.getStringValue())) {
             if (counter > maxMeaningsContinuousSequence) {
-
                 maxMeaningsContinuousSequence = counter;
             }
             counter = 0;
         }
-
         if (prevPos == 0) {
-
-            return PatternsAndConstants.FIRST_STRING_PART
+            return Patterns.FIRST_STRING_PART
                     .getStringValue(str);
         } else if (currentPos == text.length()) {
-
-            return PatternsAndConstants.LAST_STRING_PART
+            return Patterns.LAST_STRING_PART
                     .getStringValue(str);
         } else {
-
-            return PatternsAndConstants.MIDDLE_STRING_PART
+            return Patterns.MIDDLE_STRING_PART
                     .getStringValue(str);
         }
     }
 
-    private static class WordMeaningPosition {
+    public boolean isMeaningPositionsNotEmpty() {
+        return !meaningPositions.isEmpty();
+    }
 
-        private final int start;
-        private int end;
-
-        private WordMeaningPosition(int start, int end) {
-
-            this.start = start;
-            this.end = end;
-        }
-
-        @Override
-        public int hashCode() {
-
-            return start;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-
-            if (!o.getClass().equals(WordMeaningPosition.class)) {
-
-                return false;
-            }
-
-            WordMeaningPosition wmp = (WordMeaningPosition) o;
-
-            if (start != wmp.start) {
-
-                return false;
-            }
-
-            if (wmp.end < end) {
-
-                wmp.end = end;
-            }
-
-            return true;
-        }
+    public int getMeaningPositionsCount() {
+        return meaningPositions.size();
     }
 }

@@ -2,45 +2,43 @@ package searchengine.services.tasks;
 
 import com.github.demidko.aot.WordformMeaning;
 import lombok.AllArgsConstructor;
-import org.apache.commons.collections4.keyvalue.DefaultMapEntry;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
-import org.springframework.lang.Nullable;
-import org.springframework.stereotype.Component;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
+import searchengine.enums.Constants;
+import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
-import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
+import searchengine.services.IndexingManager;
 import searchengine.services.utils.LemmaProcessor;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
 @AllArgsConstructor
-@Component
-@Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class IndexingPageTask implements IndexingTask {
 
+    private final IndexingManager indexingManager;
     private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
-    private final IndexRepository indexRepository;
-
-    @Nullable
     private Page page;
 
     @Override
-    public IndexingPageTask setPage(Page page) {
-
+    public IndexingTask setPage(Page page) {
         this.page = page;
-        deleteOldIndexes();
         return this;
     }
 
@@ -48,44 +46,25 @@ public class IndexingPageTask implements IndexingTask {
     public void run() {
 
         assert page != null;
-        String text = Jsoup.parse(page.getContent()).body().text();
-        updateSiteStatus(Statuses.INDEXING, null);
-
+        Site site = page.getSite();
+        String url = site.getUrl();
+        String path = page.getPath();
         try {
-
-            Map<Lemma, Integer> lemmas =
-                    LemmaProcessor
-                            .getRussianLemmas(text)
-                            .stream()
-                            .map(WordformMeaning::toString)
-                            .collect(
-                                    Collectors.toMap(
-                                            lemma -> lemma,
-                                            lemma -> 1,
-                                            Integer::sum
-                                    )
-                            )
-                            .entrySet()
-                            .stream()
-                            .distinct()
-                            .map(this::saveLemma)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors
-                                    .toMap(
-                                            Map.Entry::getKey,
-                                            Map.Entry::getValue
-                                    )
-                            );
-
-            saveIndexes(lemmas);
-
-            updateSiteStatus(Statuses.INDEXED, null);
-
-        }catch (Exception e) {
-
+            Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
+            Connection.Response response = Jsoup
+                    .connect(url + path)
+                    .execute();
+            page.setCode(response.statusCode());
+            Document document = response.parse();
+            page.setContent(document.html());
+            pageRepository.insertPage(page);
+            page = pageRepository
+                    .findBySiteAndPath(site, path).orElse(page);
+            findSubpages(document);
+            updateSiteStatus(Statuses.INDEXING, null);
+            indexingPage();
+        } catch (Exception e) {
             updateSiteStatus(Statuses.FAILED, e.getMessage());
-
             e.printStackTrace();
         }
     }
@@ -103,28 +82,80 @@ public class IndexingPageTask implements IndexingTask {
         siteRepository.save(site);
     }
 
-    private Optional<Map.Entry<Lemma, Integer>> saveLemma(Map.Entry<String, Integer> lemmaEntry) {
-
-        Lemma lemma = new Lemma(lemmaEntry.getKey());
-
-        lemmaRepository.insertLemma(lemma);
-
-        return lemmaRepository.findByLemma(lemma.getLemma()).map(
-                l -> {
-                    assert page != null;
-                    if (lemmaRepository.countLemmaSiteRowsByLemmaAndSite(l, page.getSite()) == 0) {
-
-                        lemmaRepository.insertLemmaSite(l, page.getSite());
-                    }
-                    return new DefaultMapEntry<>(l, lemmaEntry.getValue());
-                }
-        );
-    }
-
-    private void saveIndexes(Map<Lemma, Integer> lemmas) {
+    private void findSubpages(Document document) {
 
         assert page != null;
-        lemmas
+        Site site = page.getSite();
+        String path = page.getPath();
+        Elements elements = document.getElementsByTag(
+                Patterns.HTML_TAG_A.getStringValue()
+        );
+        for (Element element : elements) {
+
+            var newPath = element.attr(
+                    Patterns.HTML_TAG_ATTRIBUTE_HREF.getStringValue()
+            );
+            Page newPage = new Page(site, newPath);
+            if (isNotAcceptablePage(path, newPage)) {
+                continue;
+            }
+            indexingManager.startIndexingPageTask(newPage);
+        }
+    }
+
+    private boolean isNotAcceptablePage(String root, Page page) {
+
+        String path = page.getPath();
+        return pageRepository.existsBySiteAndPath(page.getSite(), path) ||
+                !path.startsWith(root) ||
+                path.length() == root.length() ||
+                path.contains("?") ||
+                path.contains(":");
+    }
+
+    private void indexingPage() {
+
+        assert page != null;
+        String text = Jsoup.parse(page.getContent()).body().text();
+        Map<Lemma, Integer> lemmaMap =
+                LemmaProcessor
+                        .getRussianLemmas(text)
+                        .stream()
+                        .map(WordformMeaning::toString)
+                        .map(lemmaStr -> lemmaRepository
+                                .findByLemma(lemmaStr)
+                                .orElseGet(() -> {
+                                    Lemma lemma = new Lemma(lemmaStr);
+                                    lemmaRepository
+                                        .insertLemma(lemma);
+                                    return lemmaRepository
+                                            .findByLemma(lemmaStr)
+                                            .orElse(lemma);
+                                })
+                        )
+                        .collect(
+                                Collectors.toMap(
+                                        lemma -> lemma,
+                                        lemma -> 1,
+                                        Integer::sum
+                                )
+                        )
+                        .entrySet()
+                        .stream()
+                        .collect(Collectors
+                                .toMap(
+                                        Map.Entry::getKey,
+                                        Map.Entry::getValue
+                                )
+                        );
+        indexingManager.putIndexes(page, getIndexes(lemmaMap));
+        updateSiteStatus(Statuses.INDEXING, null);
+    }
+
+    private Set<Index> getIndexes(Map<Lemma, Integer> lemmas) {
+
+        assert page != null;
+        return lemmas
                 .entrySet()
                 .stream()
                 .map(entry ->
@@ -132,14 +163,8 @@ public class IndexingPageTask implements IndexingTask {
                                 page,
                                 entry.getKey(),
                                 (float) entry.getValue() / lemmas.size()
-                            )
+                        )
                 )
-                .forEach(indexRepository::insertOrUpdate);
-    }
-
-    private void deleteOldIndexes() {
-
-        indexRepository.deleteAllSiteLemmasByPage(page);
-        indexRepository.deleteAllByPage(page);
+                .collect(Collectors.toSet());
     }
 }

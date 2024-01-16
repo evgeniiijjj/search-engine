@@ -10,10 +10,8 @@ public record SearchResult(
         String title,
         String snippet,
         Float relevance,
-
         @JsonIgnore
         Integer meaningsCount,
-
         @JsonIgnore
         Integer maxMeaningContinuousSequence
 

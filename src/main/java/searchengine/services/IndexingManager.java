@@ -1,72 +1,74 @@
 package searchengine.services;
 
-import org.springframework.context.ApplicationContext;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
+import searchengine.entities.Index;
 import searchengine.entities.Page;
-import searchengine.services.tasks.FindPagesTask;
+import searchengine.repositories.IndexRepository;
+import searchengine.repositories.LemmaRepository;
+import searchengine.repositories.PageRepository;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.tasks.IndexingPageTask;
 import searchengine.services.tasks.IndexingTask;
+import searchengine.services.tasks.SaveIndexesTask;
 
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
-@EnableAsync
+@AllArgsConstructor
+@Getter
 public class IndexingManager {
 
     private final ThreadPoolTaskExecutor executor;
-    private final ApplicationContext context;
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
 
-    private final Set<Page> indexedPages;
+    private Map<Page, Set<Index>> indexes = new ConcurrentHashMap<>();
 
-    public IndexingManager(ThreadPoolTaskExecutor executor,
-                           ApplicationContext applicationContext) {
+    private IndexingTask getIndexingPageTask() {
 
-        this.executor = executor;
-        this.context = applicationContext;
-        this.indexedPages = ConcurrentHashMap.newKeySet();
+        return new IndexingPageTask(
+                this,
+                siteRepository,
+                pageRepository,
+                lemmaRepository,
+                null
+        );
     }
 
-    private IndexingTask getTask(String name) {
+    private IndexingTask getSaveIndexesTask() {
 
-        name = name.substring(0, 1).toLowerCase()
-                .concat(name.substring(1));
-        return (IndexingTask) context
-                .getBean(name);
+        return new SaveIndexesTask(
+                this,
+                siteRepository,
+                lemmaRepository,
+                indexRepository,
+                new HashSet<>()
+        );
     }
 
-    @Async
-    public void startFindPageWithoutSubpagesTask(Page page) {
-
-        getTask(FindPagesTask.class.getSimpleName())
-                .setPage(page)
-                .withoutFindSubpages()
-                .run();
-    }
-
-    @Async
-    public void startFindPageTask(Page page) {
-
-        getTask(FindPagesTask.class.getSimpleName())
-                .setPage(page)
-                .run();
-    }
-
-    @Async
     public void startIndexingPageTask(Page page) {
 
-        getTask(IndexingPageTask.class.getSimpleName())
-                .setPage(page)
-                .run();
+        executor.submit(getIndexingPageTask()
+                .setPage(page));
+    }
+
+    public void startSaveIndexesTask() {
+
+        executor.submit(getSaveIndexesTask());
     }
 
     public boolean isIndexing() {
 
-        return executor.getActiveCount() != 0;
+        return executor.getActiveCount() > 0;
     }
 
     public void stopIndexing() {
@@ -74,15 +76,11 @@ public class IndexingManager {
         executor.setWaitForTasksToCompleteOnShutdown(false);
         executor.shutdown();
         executor.initialize();
+        indexes = new ConcurrentHashMap<>();
     }
 
-    public boolean isPageIndexed(Page page) {
+    public void putIndexes(Page page, Set<Index> indexes) {
 
-        return indexedPages.contains(page);
-    }
-
-    public void addIndexedPage(Page page) {
-
-        indexedPages.add(page);
+        this.indexes.put(page, indexes);
     }
 }

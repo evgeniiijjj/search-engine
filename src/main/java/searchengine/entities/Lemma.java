@@ -52,6 +52,7 @@ public class Lemma {
             return false;
         }
         Lemma l = (Lemma) o;
+
         return lemma.equals(l.lemma);
     }
 }
