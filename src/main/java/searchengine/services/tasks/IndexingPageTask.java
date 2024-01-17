@@ -47,8 +47,6 @@ public class IndexingPageTask implements IndexingTask {
 
     @Override
     public void run() {
-
-        assert page != null;
         Site site = page.getSite();
         String url = site.getUrl();
         String path = page.getPath();
@@ -71,14 +69,13 @@ public class IndexingPageTask implements IndexingTask {
             updateSiteStatus(Statuses.INDEXING, null);
             indexingPage();
         } catch (Exception e) {
-            updateSiteStatus(Statuses.FAILED, e.getMessage());
+            updateSiteStatus(Statuses.FAILED,
+                    url + path + " - " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     private void updateSiteStatus(Statuses status, String lastError) {
-
-        assert page != null;
         Site site = page.getSite();
         site.setStatus(status);
         site.setStatusTime(
@@ -90,15 +87,12 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private void findSubpages(Document document) {
-
-        assert page != null;
         Site site = page.getSite();
         String path = page.getPath();
         Elements elements = document.getElementsByTag(
                 Patterns.HTML_TAG_A.getStringValue()
         );
         for (Element element : elements) {
-
             var newPath = element.attr(
                     Patterns.HTML_TAG_ATTRIBUTE_HREF.getStringValue()
             );
@@ -111,19 +105,15 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private boolean isNotAcceptablePage(String root, Page page) {
-
         String path = page.getPath();
         return pageRepository.existsBySiteAndPath(page.getSite(), path) ||
                 !path.startsWith(root) ||
                 path.length() == root.length() ||
-                path.contains("?") ||
-                path.contains(":");
+                Patterns.NOT_RELEVANT_PAGE_PATH.isMatches(path);
     }
 
     private void indexingPage() {
-
         removeOldPageIndexes(page);
-
         String text = Jsoup.parse(page.getContent()).body().text();
         Map<Lemma, Integer> lemmas =
                 LemmaProcessor
@@ -146,13 +136,10 @@ public class IndexingPageTask implements IndexingTask {
                                         Map.Entry::getValue
                                 )
                         );
-
         saveIndexes(lemmas);
-        updateSiteStatus(Statuses.INDEXING, null);
     }
 
     private Lemma saveLemma(String lemmaStr) {
-
         return lemmaRepository
                 .findByLemma(lemmaStr).orElseGet(() -> {
                     Lemma l = new Lemma(lemmaStr);
@@ -166,7 +153,6 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private void saveIndexes(Map<Lemma, Integer> lemmas) {
-
         indexRepository.saveAllAndFlush(
                 lemmas
                         .entrySet()
@@ -181,12 +167,10 @@ public class IndexingPageTask implements IndexingTask {
                         )
                         .toList()
         );
-
         updateSiteStatus(Statuses.INDEXED, null);
     }
 
     private void insertSiteLemma(Lemma lemma) {
-
         try {
             if (lemmaRepository.existsSiteLemma(page.getSite(), lemma) == 0) {
                 lemmaRepository.insertSiteLemma(page.getSite(), lemma);
@@ -197,7 +181,6 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private void removeOldPageIndexes(Page page) {
-
         indexRepository.deleteAllSiteLemmasByPage(page);
         indexRepository.deleteAllByPage(page);
     }

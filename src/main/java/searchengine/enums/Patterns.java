@@ -23,6 +23,7 @@ public enum Patterns {
     HTML_TEXT_TAG_NAMES("p,h1,h2,h3,h4,h5,h6,b,strong,i,em,u,pre," +
             "sup,sub,small,address,mark,abbr,kdb,dfn,ins,del,s,q,blockquote,cite"),
     ONE_SPACE(" "),
+    NOT_RELEVANT_PAGE_PATH("/.*[?,:].*"),
     REMOVE_REDUNDANT_DOTS("\\.\\.\\.+"),
     REMOVE_REDUNDANT_SPACES("\\s+"),
     REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS("\\s+(?=[,\\.\\?!])"),
@@ -73,7 +74,7 @@ public enum Patterns {
         return pattern;
     }
 
-    public int getIntValue() {
+    private int getIntValue() {
         return switch (this) {
             case MAX_STRING_LENGTH,
                     MAX_SNIPPET_LENGTH ->
@@ -82,21 +83,22 @@ public enum Patterns {
         };
     }
 
-    public boolean isHtmlTextTag(String tagName) {
+    public boolean isMatches(String tagName) {
         return switch (this) {
             case HTML_TEXT_TAG_NAMES ->
                 Arrays.asList(pattern.split(COMA.pattern))
                         .contains(tagName);
+            case NOT_RELEVANT_PAGE_PATH ->
+                    getRedexPattern().matcher(tagName).matches();
             default -> false;
         };
     }
 
     private String trimString(String string, int size) {
-
         if (string.length() > size) {
             String[] strings = splitString(string);
-            String first = strings[0];
-            String last = strings[strings.length - 1];
+            String first = strings[0].concat(ONE_SPACE.pattern);
+            String last = strings[strings.length - 1].concat(ONE_SPACE.pattern);
             if (this == FIRST_STRING_PART) {
                 return last;
             }

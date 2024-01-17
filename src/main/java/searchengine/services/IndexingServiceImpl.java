@@ -289,7 +289,7 @@ public class IndexingServiceImpl implements IndexingService {
     private Optional<String> getTextFromElement(Element element) {
 
         if (Patterns.HTML_TEXT_TAG_NAMES
-                .isHtmlTextTag(element.nodeName())) {
+                .isMatches(element.nodeName())) {
             return Optional.of(
                     element.text()
             );
