@@ -7,6 +7,8 @@ import java.util.List;
 
 
 public enum Messages {
+
+    INTERRUPTED_INDEXING("Индексация прервана"),
     SUCCESS(""),
     SUCCESS_SEARCH(""),
     FAILED_PAGE_INDEX("Данная страница находится за пределами сайтов, " +
@@ -28,6 +30,10 @@ public enum Messages {
                     FAILED_STOP -> new ErrorMessage(message);
             default -> new Message(false);
         };
+    }
+
+    public String getStringMessage() {
+        return message;
     }
 
     public Message getMessage(List<SearchResult> result) {

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-import searchengine.entities.Index;
 import searchengine.entities.Page;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -12,12 +11,6 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.tasks.IndexingPageTask;
 import searchengine.services.tasks.IndexingTask;
-import searchengine.services.tasks.SaveIndexesTask;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
@@ -31,8 +24,6 @@ public class IndexingManager {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
 
-    private Map<Page, Set<Index>> indexes = new ConcurrentHashMap<>();
-
     private IndexingTask getIndexingPageTask() {
 
         return new IndexingPageTask(
@@ -40,18 +31,8 @@ public class IndexingManager {
                 siteRepository,
                 pageRepository,
                 lemmaRepository,
-                null
-        );
-    }
-
-    private IndexingTask getSaveIndexesTask() {
-
-        return new SaveIndexesTask(
-                this,
-                siteRepository,
-                lemmaRepository,
                 indexRepository,
-                new HashSet<>()
+                null
         );
     }
 
@@ -59,11 +40,6 @@ public class IndexingManager {
 
         executor.submit(getIndexingPageTask()
                 .setPage(page));
-    }
-
-    public void startSaveIndexesTask() {
-
-        executor.submit(getSaveIndexesTask());
     }
 
     public boolean isIndexing() {
@@ -76,11 +52,5 @@ public class IndexingManager {
         executor.setWaitForTasksToCompleteOnShutdown(false);
         executor.shutdown();
         executor.initialize();
-        indexes = new ConcurrentHashMap<>();
-    }
-
-    public void putIndexes(Page page, Set<Index> indexes) {
-
-        this.indexes.put(page, indexes);
     }
 }

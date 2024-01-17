@@ -19,6 +19,7 @@ import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
 import searchengine.enums.Constants;
+import searchengine.enums.Messages;
 import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
 import searchengine.repositories.IndexRepository;
@@ -55,30 +56,32 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
         list.getSites().stream()
-                .map(this::setStatusAndTime)
-                .peek(siteRepository::insertOrUpdate)
-                .map(Site::getUrl)
-                .map(siteRepository::findByUrl)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(this::setStatusSite)
                 .map(this::getRootPage)
                 .forEach(indexingManager::startIndexingPageTask);
-        try {
-            Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
-            indexingManager.startSaveIndexesTask();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
         return true;
     }
 
-    private Site setStatusAndTime(Site site) {
+    private Site setStatusSite(Site site) {
 
-        site.setStatus(Statuses.INDEXING);
+        return updateStatusSite(site, Statuses.INDEXING, null);
+    }
+
+    private Site updateStatusSite(Site site,
+                                  Statuses status,
+                                  String lastError) {
+        site = siteRepository
+                .findByUrl(site.getUrl())
+                .orElse(site);
+        site.setStatus(status);
         site.setStatusTime(
                 Instant.now()
                         .truncatedTo(ChronoUnit.SECONDS)
         );
+        site.setLastError(lastError);
+        if (site.getId() == null) {
+            site = siteRepository.save(site);
+        }
         return site;
     }
 
@@ -91,6 +94,11 @@ public class IndexingServiceImpl implements IndexingService {
     public boolean stopIndexing() {
 
         if (indexingManager.isIndexing()) {
+            List<Site> sites = siteRepository.findAll();
+            sites.forEach(site ->
+                    updateStatusSite(site, Statuses.FAILED,
+                            Messages.INTERRUPTED_INDEXING.getStringMessage())
+            );
             indexingManager.stopIndexing();
             return true;
         }
@@ -117,14 +125,12 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
         Site site = optional.get();
+        Page page = new Page(site, path);
+        page = pageRepository
+                .findBySiteAndPath(site, path)
+                .orElse(page);
         indexingManager
-                .startIndexingPageTask(new Page(site, path));
-        try {
-            Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
-            indexingManager.startSaveIndexesTask();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+                .startIndexingPageTask(page);
         return indexingManager.isIndexing();
     }
 
@@ -144,7 +150,7 @@ public class IndexingServiceImpl implements IndexingService {
                         new DetailedStatisticsItem(
                                 site.getUrl(),
                                 site.getName(),
-                                site.getStatus(),
+                                getSiteStatus(site),
                                 site.getStatusTime().toEpochMilli(),
                                 site.getLastError(),
                                 pageRepository.countBySite(site),
@@ -156,6 +162,14 @@ public class IndexingServiceImpl implements IndexingService {
                 true,
                 new StatisticsData(totalStatistics, details)
         );
+    }
+
+    private String getSiteStatus(Site site) {
+
+        if (indexingManager.isIndexing()) {
+            return Statuses.INDEXING.name();
+        }
+        return site.getStatus();
     }
 
     @Override
