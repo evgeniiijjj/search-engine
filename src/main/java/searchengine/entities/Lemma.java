@@ -22,10 +22,8 @@ public class Lemma {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
     @Column(unique = true, nullable = false)
     private String lemma;
-
     @ManyToMany
     @JoinTable(name = "site_lemmas",
             joinColumns = { @JoinColumn(name = "lemma") },
@@ -48,11 +46,9 @@ public class Lemma {
     public boolean equals(Object o) {
 
         if (!o.getClass().equals(Lemma.class)) {
-
             return false;
         }
         Lemma l = (Lemma) o;
-
         return lemma.equals(l.lemma);
     }
 }

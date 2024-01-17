@@ -6,6 +6,7 @@ import org.apache.commons.collections4.keyvalue.DefaultMapEntry;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.stereotype.Service;
 import searchengine.config.SiteList;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.SearchResult;
@@ -38,7 +39,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 
-@org.springframework.stereotype.Service
+@Service
 @AllArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
 

@@ -19,17 +19,14 @@ public class Index implements Comparable<Index> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
     @JoinColumn(name = "page_id")
     @ManyToOne(cascade = CascadeType.MERGE)
     @Nonnull
     private Page page;
-
     @JoinColumn(name = "lemma_id")
     @ManyToOne(cascade = CascadeType.MERGE)
     @Nonnull
     private Lemma lemma;
-
     @Column(name = "lemma_rank",
             nullable = false)
     private Float rank;

@@ -23,10 +23,10 @@ public class SnippetGenerator {
     public SnippetGenerator(String text, PageLemmas pageLemmas) {
         this.text = text;
         meaningPositions = new HashMap<>();
-        fillWordMeaningPositions(pageLemmas);
+        fillMeaningPositions(pageLemmas);
     }
 
-    private void fillWordMeaningPositions(PageLemmas pageLemmas) {
+    private void fillMeaningPositions(PageLemmas pageLemmas) {
         pageLemmas
                 .lemmas()
                 .stream()
@@ -79,8 +79,8 @@ public class SnippetGenerator {
                 .sorted()
                 .map(pos ->
                         modifyString(
-                                countPos.getAndIncrement(),
-                                prevPos.getAndSet(pos),
+                                countPos,
+                                prevPos,
                                 pos
                         )
                 )
@@ -91,6 +91,7 @@ public class SnippetGenerator {
                         StringBuilder::append
                 )
                 .toString();
+
         return new Snippet(
                 stringSnippet,
                 getMeaningPositionsCount(),
@@ -98,10 +99,16 @@ public class SnippetGenerator {
         );
     }
 
-    private String modifyString(int countPos, int prevPos, int currentPos) {
+    private String modifyString(AtomicInteger countPos, AtomicInteger prevPos, int currentPos) {
 
-        String str = text.substring(prevPos, currentPos);
-        if (countPos % 2 > 0) {
+        int countP = countPos.get();
+        int prevP = prevPos.getAndSet(currentPos);
+        if (!meaningPositions.containsKey(currentPos) ||
+                countP % 2 == 0) {
+            countPos.getAndIncrement();
+        }
+        String str = text.substring(prevP, currentPos);
+        if (countP % 2 > 0) {
             counter++;
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
@@ -112,7 +119,7 @@ public class SnippetGenerator {
             }
             counter = 0;
         }
-        if (prevPos == 0) {
+        if (prevP == 0) {
             return Patterns.FIRST_STRING_PART
                     .getStringValue(str);
         } else if (currentPos == text.length()) {
