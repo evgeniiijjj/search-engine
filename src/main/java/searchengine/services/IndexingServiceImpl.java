@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import com.github.demidko.aot.WordformMeaning;
 import lombok.AllArgsConstructor;
 import org.apache.commons.collections4.keyvalue.DefaultMapEntry;
 import org.jsoup.Jsoup;
@@ -11,7 +10,7 @@ import searchengine.config.SiteList;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.SearchResult;
 import searchengine.dto.Snippet;
-import searchengine.dto.WordFormMeaningSpec;
+import searchengine.services.utils.WordFormMeaningSpec;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -211,7 +210,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     private Map<Lemma, WordFormMeaningSpec> getLemmasMap(String query) {
         return LemmaProcessor
-                .getRussianLemmas(
+                .getLemmas(
                         Patterns.REMOVE_PUNCTUATION_MARKS
                                 .getStringValue(query)
                 )

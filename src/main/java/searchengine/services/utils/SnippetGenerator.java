@@ -1,13 +1,14 @@
 package searchengine.services.utils;
 
-import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.Snippet;
-import searchengine.dto.WordFormMeaningSpec;
 import searchengine.enums.Patterns;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -33,7 +34,7 @@ public class SnippetGenerator {
                 .stream()
                 .map(WordFormMeaningSpec::getTransformations)
                 .flatMap(List::stream)
-                .map(WordformMeaning::toString)
+                .map(WordFormMeaningSpec::toString)
                 .filter(this::containsMeaning)
                 .distinct()
                 .forEach(meaning -> Patterns.SAMPLE
@@ -90,6 +91,10 @@ public class SnippetGenerator {
                         StringBuilder::append
                 )
                 .toString();
+
+        if (counter > maxMeaningsContinuousSequence) {
+            maxMeaningsContinuousSequence = counter;
+        }
 
         return new Snippet(
                 stringSnippet,

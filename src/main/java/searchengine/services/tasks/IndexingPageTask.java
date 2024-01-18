@@ -1,6 +1,5 @@
 package searchengine.services.tasks;
 
-import com.github.demidko.aot.WordformMeaning;
 import lombok.AllArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jsoup.Connection;
@@ -9,7 +8,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.dao.DataIntegrityViolationException;
-import searchengine.dto.WordFormMeaningSpec;
+import searchengine.services.utils.WordFormMeaningSpec;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
@@ -118,7 +117,7 @@ public class IndexingPageTask implements IndexingTask {
         String text = Jsoup.parse(page.getContent()).body().text();
         Map<Lemma, Integer> lemmas =
                 LemmaProcessor
-                        .getRussianLemmas(text)
+                        .getLemmas(text)
                         .stream()
                         .map(WordFormMeaningSpec::toString)
                         .map(this::saveLemma)

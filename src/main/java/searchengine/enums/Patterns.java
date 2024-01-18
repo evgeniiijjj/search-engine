@@ -7,6 +7,8 @@ import java.util.regex.Pattern;
 public enum Patterns {
 
     COMA(","),
+    CONTAINS_RUSSIAN_LETTERS("[ёа-я]+"),
+    CONTAINS_ENGLISH_LETTERS("[a-z]+"),
     END_LINE(". "),
     EMPTY_STRING(""),
     LINE_BREAK_PLACEHOLDER("..."),
@@ -29,6 +31,7 @@ public enum Patterns {
     REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS("\\s+(?=[,\\.\\?!])"),
     REMOVE_PUNCTUATION_MARKS("[\\.\\?!,:;]+"),
     REMOVE_SPACES_AT_LINE_BEGINNING("^\\s+"),
+    REMOVE_SPACES_AFTER_PARENTHESIS("(?<=\\()\\s+"),
     REMOVE_REDUNDANT_SYMBOLS(""),
     SAMPLE("%s"),
     STRING_SPLITTER("(?<=[\\.\\?!]) "),
@@ -83,13 +86,15 @@ public enum Patterns {
         };
     }
 
-    public boolean isMatches(String tagName) {
+    public boolean isMatches(String string) {
         return switch (this) {
             case HTML_TEXT_TAG_NAMES ->
                 Arrays.asList(pattern.split(COMA.pattern))
-                        .contains(tagName);
-            case NOT_RELEVANT_PAGE_PATH ->
-                    getRedexPattern().matcher(tagName).matches();
+                        .contains(string);
+            case NOT_RELEVANT_PAGE_PATH,
+                    CONTAINS_RUSSIAN_LETTERS,
+                    CONTAINS_ENGLISH_LETTERS ->
+                    getRedexPattern().matcher(string).matches();
             default -> false;
         };
     }
@@ -98,7 +103,7 @@ public enum Patterns {
         if (string.length() > size) {
             String[] strings = splitString(string);
             String first = strings[0].concat(ONE_SPACE.pattern);
-            String last = strings[strings.length - 1].concat(ONE_SPACE.pattern);
+            String last = strings[strings.length - 1];
             if (this == FIRST_STRING_PART) {
                 return last;
             }
@@ -150,7 +155,8 @@ public enum Patterns {
     private String removeRedundantSpaces(String string) {
         return string.replaceAll(REMOVE_REDUNDANT_SPACES.pattern, ONE_SPACE.pattern)
                 .replaceAll(REMOVE_SPACES_BEFORE_PUNCTUATION_MARKS.pattern, EMPTY_STRING.pattern)
-                .replaceAll(REMOVE_SPACES_AT_LINE_BEGINNING.pattern, EMPTY_STRING.pattern);
+                .replaceAll(REMOVE_SPACES_AT_LINE_BEGINNING.pattern, EMPTY_STRING.pattern)
+                .replaceAll(REMOVE_SPACES_AFTER_PARENTHESIS.pattern, EMPTY_STRING.pattern);
     }
 
     private String removeRedundantDots(String string) {

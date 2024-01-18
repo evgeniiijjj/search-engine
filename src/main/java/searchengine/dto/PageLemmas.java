@@ -1,7 +1,7 @@
 package searchengine.dto;
 
-import com.github.demidko.aot.WordformMeaning;
 import searchengine.entities.Page;
+import searchengine.services.utils.WordFormMeaningSpec;
 
 import java.util.List;
 
