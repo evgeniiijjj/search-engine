@@ -11,6 +11,7 @@ import searchengine.config.SiteList;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.SearchResult;
 import searchengine.dto.Snippet;
+import searchengine.dto.WordFormMeaningSpec;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -177,7 +178,7 @@ public class IndexingServiceImpl implements IndexingService {
     public List<SearchResult> getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
-        Map<Lemma, WordformMeaning> lemmas = getLemmasMap(query);
+        Map<Lemma, WordFormMeaningSpec> lemmas = getLemmasMap(query);
         Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
         return indexes
                 .entrySet()
@@ -208,7 +209,7 @@ public class IndexingServiceImpl implements IndexingService {
                 .toList();
     }
 
-    private Map<Lemma, WordformMeaning> getLemmasMap(String query) {
+    private Map<Lemma, WordFormMeaningSpec> getLemmasMap(String query) {
         return LemmaProcessor
                 .getRussianLemmas(
                         Patterns.REMOVE_PUNCTUATION_MARKS
@@ -234,7 +235,7 @@ public class IndexingServiceImpl implements IndexingService {
                 );
     }
 
-    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordformMeaning> lemmas,
+    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordFormMeaningSpec> lemmas,
                                                  String siteUrl) {
         return lemmas.keySet()
                 .stream()

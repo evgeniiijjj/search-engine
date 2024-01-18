@@ -1,12 +1,12 @@
 package searchengine.services.utils;
 
-import com.github.demidko.aot.PartOfSpeech;
 import com.github.demidko.aot.WordformMeaning;
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
+import searchengine.dto.WordFormMeaningSpec;
 import searchengine.enums.Patterns;
 
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ import java.util.regex.MatchResult;
 
 public class LemmaProcessor {
 
-    public static List<WordformMeaning> getRussianLemmas(String text) {
+    public static List<WordFormMeaningSpec> getRussianLemmas(String text) {
 
         return Patterns.WORD.getRedexPattern()
                 .matcher(text)
@@ -26,21 +26,10 @@ public class LemmaProcessor {
                 .map(WordformMeaning::lookupForMeanings)
                 .filter(list -> !list.isEmpty())
                 .map(list -> list.get(0))
-                .filter(LemmaProcessor::partOfSpeechFilter)
-                .map(WordformMeaning::getLemma)
+                .map(WordFormMeaningSpec::new)
+                .map(WordFormMeaningSpec::getLemma)
                 .distinct()
                 .toList();
-    }
-
-    private static boolean partOfSpeechFilter(WordformMeaning meaning) {
-
-        PartOfSpeech partOfSpeech = meaning.getPartOfSpeech();
-
-        return !partOfSpeech.equals(PartOfSpeech.Pretext) &&
-                !partOfSpeech.equals(PartOfSpeech.Union) &&
-                !partOfSpeech.equals(PartOfSpeech.Particle) &&
-                !partOfSpeech.equals(PartOfSpeech.Interjection) &&
-                !partOfSpeech.equals(PartOfSpeech.VerbalParticiple);
     }
 
     public static List<String> getEnglishLemmas(String text) {

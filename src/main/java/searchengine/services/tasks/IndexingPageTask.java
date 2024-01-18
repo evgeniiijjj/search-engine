@@ -9,6 +9,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.dao.DataIntegrityViolationException;
+import searchengine.dto.WordFormMeaningSpec;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
@@ -119,7 +120,7 @@ public class IndexingPageTask implements IndexingTask {
                 LemmaProcessor
                         .getRussianLemmas(text)
                         .stream()
-                        .map(WordformMeaning::toString)
+                        .map(WordFormMeaningSpec::toString)
                         .map(this::saveLemma)
                         .collect(
                                 Collectors.toMap(

@@ -8,7 +8,7 @@ import java.util.List;
 
 public record PageLemmas(
         Page page,
-        List<WordformMeaning> lemmas,
+        List<WordFormMeaningSpec> lemmas,
         float relevance
 
 ) implements Comparable<PageLemmas> {

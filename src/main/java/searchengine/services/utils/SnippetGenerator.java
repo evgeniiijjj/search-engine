@@ -4,6 +4,7 @@ import com.github.demidko.aot.WordformMeaning;
 import lombok.Getter;
 import searchengine.dto.PageLemmas;
 import searchengine.dto.Snippet;
+import searchengine.dto.WordFormMeaningSpec;
 import searchengine.enums.Patterns;
 
 import java.util.*;
@@ -30,7 +31,7 @@ public class SnippetGenerator {
         pageLemmas
                 .lemmas()
                 .stream()
-                .map(WordformMeaning::getTransformations)
+                .map(WordFormMeaningSpec::getTransformations)
                 .flatMap(List::stream)
                 .map(WordformMeaning::toString)
                 .filter(this::containsMeaning)
@@ -73,14 +74,12 @@ public class SnippetGenerator {
                         .collect(Collectors.toSet());
         positions.add(text.length());
         AtomicInteger prevPos = new AtomicInteger();
-        AtomicInteger countPos = new AtomicInteger();
         String stringSnippet = positions
                 .stream()
                 .sorted()
                 .map(pos ->
                         modifyString(
-                                countPos,
-                                prevPos,
+                                prevPos.getAndSet(pos),
                                 pos
                         )
                 )
@@ -99,16 +98,10 @@ public class SnippetGenerator {
         );
     }
 
-    private String modifyString(AtomicInteger countPos, AtomicInteger prevPos, int currentPos) {
+    private String modifyString(int prevPos, int currentPos) {
 
-        int countP = countPos.get();
-        int prevP = prevPos.getAndSet(currentPos);
-        if (!meaningPositions.containsKey(currentPos) ||
-                countP % 2 == 0) {
-            countPos.getAndIncrement();
-        }
-        String str = text.substring(prevP, currentPos);
-        if (countP % 2 > 0) {
+        String str = text.substring(prevPos, currentPos);
+        if (meaningPositions.containsKey(prevPos)) {
             counter++;
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
@@ -119,7 +112,7 @@ public class SnippetGenerator {
             }
             counter = 0;
         }
-        if (prevP == 0) {
+        if (prevPos == 0) {
             return Patterns.FIRST_STRING_PART
                     .getStringValue(str);
         } else if (currentPos == text.length()) {
