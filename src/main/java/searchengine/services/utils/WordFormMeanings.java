@@ -23,7 +23,6 @@ public class WordFormMeaningSpec {
     }
 
     private void setWordformMeaning(String word) {
-
         if (Patterns.CONTAINS_RUSSIAN_LETTERS.isMatches(word)) {
             List<WordformMeaning> meanings = WordformMeaning.lookupForMeanings(word);
             if (!meanings.isEmpty()) {
@@ -37,11 +36,9 @@ public class WordFormMeaningSpec {
     }
 
     public List<WordFormMeaningSpec> getTransformations() {
-
         if (lemma != null) {
             return List.of(this);
         }
-
         return wordformMeaning
                 .getTransformations()
                 .stream()
@@ -56,14 +53,13 @@ public class WordFormMeaningSpec {
                 !partOfSpeech.equals(PartOfSpeech.Infinitive) &&
                 !partOfSpeech.equals(PartOfSpeech.BriefCommunion) &&
                 !partOfSpeech.equals(PartOfSpeech.VerbalParticiple) &&
+                !partOfSpeech.equals(PartOfSpeech.Union) &&
                 !partOfSpeech.equals(PartOfSpeech.Pronoun);
     }
 
     private String getEnglishLemma(String word) {
-
         CoreLabel label = LemmaProcessor.getEnglishLemma(word);
         String partOfSpeech = label.get(CoreAnnotations.PartOfSpeechAnnotation.class);
-
         if (partOfSpeech.equals("VB") ||
                 partOfSpeech.equals("PRP") ||
                 partOfSpeech.equals("IN") ||
@@ -72,7 +68,6 @@ public class WordFormMeaningSpec {
         ) {
             return null;
         }
-
         return label.lemma();
     }
 
@@ -82,7 +77,6 @@ public class WordFormMeaningSpec {
 
     @Override
     public String toString() {
-
         if (lemma != null) {
             return lemma;
         }

@@ -1,11 +1,18 @@
 package searchengine.entities;
 
 import jakarta.annotation.Nonnull;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 
 @Getter
 @Setter
@@ -13,13 +20,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "pages")
 public class Page {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @Nonnull
+    @JoinColumn(name = "site_id", nullable = false)
     @ManyToOne(cascade = CascadeType.MERGE)
-    @JoinColumn(name = "site_id")
     private Site site;
     @Column(name = "page_path",
             unique = true,

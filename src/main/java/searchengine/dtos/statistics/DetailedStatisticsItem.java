@@ -1,4 +1,4 @@
-package searchengine.dto.statistics;
+package searchengine.dtos.statistics;
 
 public record DetailedStatisticsItem(
         String url,

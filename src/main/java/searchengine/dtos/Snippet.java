@@ -1,5 +1,4 @@
-package searchengine.dto;
-
+package searchengine.dtos;
 
 public record Snippet(
         String stringSnippet,
@@ -9,13 +8,11 @@ public record Snippet(
 
     @Override
     public String toString() {
-
         return stringSnippet;
     }
 
     @Override
     public int compareTo(Snippet o) {
-
         return maxMeaningContinuousSequence
                 .compareTo(o.maxMeaningContinuousSequence) * 1000 +
                 wordMeaningCount.compareTo(o.wordMeaningCount);

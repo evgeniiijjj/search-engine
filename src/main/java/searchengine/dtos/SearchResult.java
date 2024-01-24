@@ -1,7 +1,6 @@
-package searchengine.dto;
+package searchengine.dtos;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 
 public record SearchResult(
         String site,
@@ -14,12 +13,9 @@ public record SearchResult(
         Integer meaningsCount,
         @JsonIgnore
         Integer maxMeaningContinuousSequence
-
 ) implements Comparable<SearchResult> {
-
     @Override
     public int compareTo(SearchResult o) {
-
         return o.maxMeaningContinuousSequence.compareTo(maxMeaningContinuousSequence) * 10000 +
                 o.meaningsCount.compareTo(meaningsCount) * 1000 +
                 Integer.compare(o.snippet.length(), snippet.length()) * 100 +

@@ -1,14 +1,19 @@
 package searchengine.entities;
 
 import jakarta.annotation.Nonnull;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import searchengine.enums.Statuses;
-
 import java.time.Instant;
-
 
 @Getter
 @Setter
@@ -16,7 +21,6 @@ import java.time.Instant;
 @Entity
 @Table(name = "sites")
 public class Site {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -24,20 +28,20 @@ public class Site {
     @Column(name = "site_status",
             columnDefinition = "enum",
             nullable = false)
-    private volatile Statuses status;
+    private Statuses status;
     @Column(name = "status_time",
             nullable = false)
-    private volatile Instant statusTime;
+    private Instant statusTime;
     @Column(name = "last_error")
-    private volatile String lastError;
+    private String lastError;
     @Column(name = "site_url",
             unique = true,
             nullable = false)
     private String url;
     @Column(name = "site_name",
+            unique = true,
             nullable = false)
     private String name;
-
 
     public Site(@Nonnull String url) {
         this.url = url;

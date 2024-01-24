@@ -1,12 +1,19 @@
 package searchengine.entities;
 
 import jakarta.annotation.Nonnull;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 
 @Getter
 @Setter
@@ -15,46 +22,33 @@ import lombok.Setter;
 @Entity
 @Table(name = "indexes")
 public class Index implements Comparable<Index> {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @JoinColumn(name = "page_id")
+    @JoinColumn(name = "page_id", nullable = false)
     @ManyToOne(cascade = CascadeType.MERGE)
-    @Nonnull
     private Page page;
-    @JoinColumn(name = "lemma_id")
+    @JoinColumn(name = "lemma_id", nullable = false)
     @ManyToOne(cascade = CascadeType.MERGE)
-    @Nonnull
     private Lemma lemma;
     @Column(name = "lemma_rank",
             nullable = false)
     private Float rank;
 
-
     public Index(@Nonnull Page page,
                  @Nonnull Lemma lemma,
                  @Nonnull Float rank) {
-
         this.page = page;
         this.lemma = lemma;
         this.rank = rank;
     }
 
     public int getPageId() {
-
         return page.getId();
     }
 
     public int getLemmaId() {
-
         return lemma.getId();
-    }
-
-    public Index setLemmaId(int id) {
-
-        lemma.setId(id);
-        return this;
     }
 
     @Override
@@ -76,7 +70,6 @@ public class Index implements Comparable<Index> {
 
     @Override
     public int compareTo(Index o) {
-
         return rank.compareTo(o.rank);
     }
 }

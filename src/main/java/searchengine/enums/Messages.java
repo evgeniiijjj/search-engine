@@ -1,13 +1,11 @@
 package searchengine.enums;
 
-import lombok.*;
-import searchengine.dto.SearchResult;
-
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import searchengine.dtos.SearchResult;
 import java.util.List;
 
-
 public enum Messages {
-
     INTERRUPTED_INDEXING("Индексация прервана"),
     SUCCESS(""),
     SUCCESS_SEARCH(""),
@@ -63,7 +61,6 @@ public enum Messages {
 
     @Getter
     public static class ErrorMessage extends Message {
-
         private final String error;
 
         public ErrorMessage(String error) {

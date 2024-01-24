@@ -1,10 +1,8 @@
 package searchengine.services;
 
-import searchengine.dto.SearchResult;
-import searchengine.dto.statistics.StatisticsResponse;
-
+import searchengine.dtos.SearchResult;
+import searchengine.dtos.statistics.StatisticsResponse;
 import java.util.List;
-
 
 public interface IndexingService {
     boolean startIndexing();

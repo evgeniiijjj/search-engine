@@ -4,11 +4,10 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import searchengine.dto.PageDto;
-import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.dtos.PageUrl;
+import searchengine.dtos.statistics.StatisticsResponse;
 import searchengine.enums.Messages;
 import searchengine.services.IndexingService;
-
 
 @AllArgsConstructor
 @RestController
@@ -19,7 +18,6 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<?> startIndexing() {
-
         if (indexingService.startIndexing()) {
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
@@ -31,7 +29,6 @@ public class ApiController {
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<?> stopIndexing() {
-
         if (indexingService.stopIndexing()) {
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
@@ -43,10 +40,8 @@ public class ApiController {
 
     @PostMapping(path = "/indexPage",
             consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE})
-    public ResponseEntity<?> indexPage(PageDto page) {
-
+    public ResponseEntity<?> indexPage(PageUrl page) {
         if (indexingService.indexPage(page.url())) {
-
             return ResponseEntity
                     .ok(Messages.SUCCESS.getMessage());
         }
@@ -57,7 +52,6 @@ public class ApiController {
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
-
         return ResponseEntity
                 .ok(indexingService.getStatistics());
     }
