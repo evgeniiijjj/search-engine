@@ -5,20 +5,18 @@ import com.github.demidko.aot.WordformMeaning;
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 import searchengine.enums.Patterns;
-
 import java.util.List;
 
-
-public class WordFormMeaningSpec {
+public class WordFormMeanings {
 
     private String lemma;
     private WordformMeaning wordformMeaning;
 
-    public WordFormMeaningSpec(String word) {
+    public WordFormMeanings(String word) {
         setWordformMeaning(word);
     }
 
-    public WordFormMeaningSpec(WordformMeaning wordformMeaning) {
+    public WordFormMeanings(WordformMeaning wordformMeaning) {
         this.wordformMeaning = wordformMeaning;
     }
 
@@ -35,7 +33,7 @@ public class WordFormMeaningSpec {
         }
     }
 
-    public List<WordFormMeaningSpec> getTransformations() {
+    public List<WordFormMeanings> getTransformations() {
         if (lemma != null) {
             return List.of(this);
         }
@@ -43,7 +41,7 @@ public class WordFormMeaningSpec {
                 .getTransformations()
                 .stream()
                 .filter(this::partOfSpeechFilter)
-                .map(WordFormMeaningSpec::new)
+                .map(WordFormMeanings::new)
                 .toList();
     }
 

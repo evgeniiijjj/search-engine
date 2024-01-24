@@ -7,18 +7,10 @@ import org.springframework.transaction.annotation.Transactional;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
-
+import searchengine.entities.Site;
 import java.util.List;
 
-
 public interface IndexRepository extends JpaRepository<Index, Integer> {
-
-    @Modifying
-    @Transactional
-    @Query(value = "DELETE FROM site_lemmas sl WHERE sl.lemma_id IN " +
-            "(SELECT ind.lemma_id FROM indexes ind WHERE ind.page_id=:#{#page.id})",
-            nativeQuery = true)
-    void deleteAllSiteLemmasByPage(Page page);
 
     @Query(value = "SELECT * FROM indexes WHERE lemma_id=:#{#lemma.id} " +
             "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
@@ -27,7 +19,12 @@ public interface IndexRepository extends JpaRepository<Index, Integer> {
 
     @Modifying
     @Transactional
-    @Query(value = "DELETE FROM indexes ind WHERE ind.page_id=:#{#page.id}",
+    @Query(value = "DELETE FROM indexes ind WHERE ind.page_id IN " +
+            "(SELECT p.id FROM pages p WHERE p.site_id=:#{#site.id})",
             nativeQuery = true)
+    void deleteAllBySite(Site site);
+
     void deleteAllByPage(Page page);
+
+    List<Index> findAllByPage(Page page);
 }

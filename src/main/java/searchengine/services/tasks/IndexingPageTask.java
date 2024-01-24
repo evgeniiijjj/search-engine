@@ -1,14 +1,13 @@
 package searchengine.services.tasks;
 
 import lombok.AllArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.dao.DataIntegrityViolationException;
-import searchengine.services.utils.WordFormMeaningSpec;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
@@ -22,14 +21,15 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.IndexingManager;
 import searchengine.services.utils.LemmaProcessor;
-
+import searchengine.services.utils.WordFormMeanings;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-
 @AllArgsConstructor
+@Slf4j
 public class IndexingPageTask implements IndexingTask {
 
     private final IndexingManager indexingManager;
@@ -58,20 +58,19 @@ public class IndexingPageTask implements IndexingTask {
             page.setCode(response.statusCode());
             Document document = response.parse();
             page.setContent(document.html());
-            if (page.getId() == null) {
-                try {
-                    page = pageRepository.save(page);
-                } catch (DataIntegrityViolationException e) {
-                    return;
-                }
+            try {
+                page = pageRepository.save(page);
+            } catch (DataIntegrityViolationException e) {
+                log.info(e.getMessage());
+                return;
             }
             findSubpages(document);
             updateSiteStatus(Statuses.INDEXING, null);
             indexingPage();
         } catch (Exception e) {
-            updateSiteStatus(Statuses.FAILED,
-                    url + path + " - " + e.getMessage());
-            e.printStackTrace();
+            String errorMessage = url + path + " - " + e.getMessage();
+            updateSiteStatus(Statuses.FAILED, errorMessage);
+            log.warn(errorMessage);
         }
     }
 
@@ -113,14 +112,15 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private void indexingPage() {
-        removeOldPageIndexes(page);
         String text = Jsoup.parse(page.getContent()).body().text();
         Map<Lemma, Integer> lemmas =
                 LemmaProcessor
                         .getLemmas(text)
                         .stream()
-                        .map(WordFormMeaningSpec::toString)
+                        .map(WordFormMeanings::toString)
                         .map(this::saveLemma)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
                         .collect(
                                 Collectors.toMap(
                                         lemma -> lemma,
@@ -139,17 +139,11 @@ public class IndexingPageTask implements IndexingTask {
         saveIndexes(lemmas);
     }
 
-    private Lemma saveLemma(String lemmaStr) {
+    private Optional<Lemma> saveLemma(String lemmaStr) {
+        Lemma lemma = new Lemma(page.getSite(), lemmaStr);
+        lemmaRepository.insertOrUpdateLemma(lemma);
         return lemmaRepository
-                .findByLemma(lemmaStr).orElseGet(() -> {
-                    Lemma l = new Lemma(lemmaStr);
-                    try {
-                        return lemmaRepository.save(l);
-                    } catch (DataIntegrityViolationException e) {
-                        return lemmaRepository
-                                .findByLemma(lemmaStr).orElse(l);
-                    }
-                });
+                .findBySiteAndLemma(lemma.getSite(), lemma.getLemma());
     }
 
     private void saveIndexes(Map<Lemma, Integer> lemmas) {
@@ -157,7 +151,6 @@ public class IndexingPageTask implements IndexingTask {
                 lemmas
                         .entrySet()
                         .stream()
-                        .peek(entry -> insertSiteLemma(entry.getKey()))
                         .map(entry ->
                                 new Index(
                                         page,
@@ -168,20 +161,5 @@ public class IndexingPageTask implements IndexingTask {
                         .toList()
         );
         updateSiteStatus(Statuses.INDEXED, null);
-    }
-
-    private void insertSiteLemma(Lemma lemma) {
-        try {
-            if (lemmaRepository.existsSiteLemma(page.getSite(), lemma) == 0) {
-                lemmaRepository.insertSiteLemma(page.getSite(), lemma);
-            }
-        } catch (DataIntegrityViolationException | ConstraintViolationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void removeOldPageIndexes(Page page) {
-        indexRepository.deleteAllSiteLemmasByPage(page);
-        indexRepository.deleteAllByPage(page);
     }
 }

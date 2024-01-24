@@ -94,17 +94,33 @@ databaseChangeLog:
                   constraints:
                     primaryKey: true
               - column:
+                  name: site_id
+                  type: int
+                  constraints:
+                    foreignKeyName: lemmas_site_fk
+                    referencedTableName: sites
+                    referencedColumnName: id
+                    onDelete: CASCADE
+                    nullable: false
+              - column:
                   name: lemma
                   type: varchar(255)
                   constraints:
-                    unique: true
+                    nullable: false
+              - column:
+                  name: frequency
+                  type: int
+                  constraints:
                     nullable: false
         - createIndex:
             columns:
               - column:
+                  name: site_id
+              - column:
                   name: lemma(50)
-            indexName: lemmas_lemma
+            indexName: lemmas_site_id_lemma
             tableName: lemmas
+            unique: true
         - createTable:
             tableName: indexes
             columns:
@@ -152,33 +168,3 @@ databaseChangeLog:
                   name: lemma_rank
             indexName: indexes_lemma_rank
             tableName: indexes
-        - createTable:
-            tableName: site_lemmas
-            columns:
-              - column:
-                  name: site_id
-                  type: int
-                  constraints:
-                    foreignKeyName: site_lemmas_site_fk
-                    referencedTableName: sites
-                    referencedColumnNames: id
-                    onDelete: CASCADE
-                    nullable: false
-              - column:
-                  name: lemma_id
-                  type: int
-                  constraints:
-                    foreignKeyName: site_lemmas_lemma_fk
-                    referencedTableName: lemmas
-                    referencedColumnNames: id
-                    onDelete: CASCADE
-                    nullable: false
-        - createIndex:
-            columns:
-              - column:
-                  name: site_id
-              - column:
-                  name: lemma_id
-            indexName: site_lemmas_site_id_lemma_id
-            tableName: site_lemmas
-            unique: true

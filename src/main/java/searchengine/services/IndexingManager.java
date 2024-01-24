@@ -12,7 +12,6 @@ import searchengine.repositories.SiteRepository;
 import searchengine.services.tasks.IndexingPageTask;
 import searchengine.services.tasks.IndexingTask;
 
-
 @Component
 @AllArgsConstructor
 @Getter
@@ -25,7 +24,6 @@ public class IndexingManager {
     private final IndexRepository indexRepository;
 
     private IndexingTask getIndexingPageTask() {
-
         return new IndexingPageTask(
                 this,
                 siteRepository,
@@ -37,18 +35,15 @@ public class IndexingManager {
     }
 
     public void startIndexingPageTask(Page page) {
-
         executor.submit(getIndexingPageTask()
                 .setPage(page));
     }
 
     public boolean isIndexing() {
-
         return executor.getActiveCount() > 0;
     }
 
     public void stopIndexing() {
-
         executor.setWaitForTasksToCompleteOnShutdown(false);
         executor.shutdown();
         executor.initialize();

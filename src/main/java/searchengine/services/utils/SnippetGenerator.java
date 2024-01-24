@@ -1,10 +1,9 @@
 package searchengine.services.utils;
 
 import lombok.Getter;
-import searchengine.dto.PageLemmas;
-import searchengine.dto.Snippet;
+import searchengine.dtos.PageLemmas;
+import searchengine.dtos.Snippet;
 import searchengine.enums.Patterns;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +11,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 
 @Getter
 public class SnippetGenerator {
@@ -32,9 +30,9 @@ public class SnippetGenerator {
         pageLemmas
                 .lemmas()
                 .stream()
-                .map(WordFormMeaningSpec::getTransformations)
+                .map(WordFormMeanings::getTransformations)
                 .flatMap(List::stream)
-                .map(WordFormMeaningSpec::toString)
+                .map(WordFormMeanings::toString)
                 .filter(this::containsMeaning)
                 .distinct()
                 .forEach(meaning -> Patterns.SAMPLE
@@ -91,11 +89,9 @@ public class SnippetGenerator {
                         StringBuilder::append
                 )
                 .toString();
-
         if (counter > maxMeaningsContinuousSequence) {
             maxMeaningsContinuousSequence = counter;
         }
-
         return new Snippet(
                 stringSnippet,
                 getMeaningPositionsCount(),
@@ -104,9 +100,8 @@ public class SnippetGenerator {
     }
 
     private String modifyString(int prevPos, int currentPos) {
-
         String str = text.substring(prevPos, currentPos);
-        if (meaningPositions.containsKey(prevPos)) {
+        if (meaningPositions.containsKey(prevPos) && prevPos != currentPos) {
             counter++;
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
