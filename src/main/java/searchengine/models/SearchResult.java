@@ -1,4 +1,4 @@
-package searchengine.dtos;
+package searchengine.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 

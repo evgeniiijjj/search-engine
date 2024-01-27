@@ -2,7 +2,7 @@ package searchengine.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import searchengine.dtos.SearchResult;
+import searchengine.models.SearchResult;
 import java.util.List;
 
 public enum Messages {

@@ -1,4 +1,4 @@
-package searchengine.dtos.statistics;
+package searchengine.models.statistics;
 
 public record StatisticsResponse(
         boolean result,

@@ -1,8 +1,8 @@
 package searchengine.services.utils;
 
 import lombok.Getter;
-import searchengine.dtos.PageLemmas;
-import searchengine.dtos.Snippet;
+import searchengine.models.PageLemmas;
+import searchengine.models.Snippet;
 import searchengine.enums.Patterns;
 import java.util.HashMap;
 import java.util.List;
@@ -101,7 +101,7 @@ public class SnippetGenerator {
 
     private String modifyString(int prevPos, int currentPos) {
         String str = text.substring(prevPos, currentPos);
-        if (meaningPositions.containsKey(prevPos) && prevPos != currentPos) {
+        if (meaningPositions.containsKey(prevPos) && currentPos > 0) {
             counter++;
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);

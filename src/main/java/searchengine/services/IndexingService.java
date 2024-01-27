@@ -1,7 +1,7 @@
 package searchengine.services;
 
-import searchengine.dtos.SearchResult;
-import searchengine.dtos.statistics.StatisticsResponse;
+import searchengine.models.SearchResult;
+import searchengine.models.statistics.StatisticsResponse;
 import java.util.List;
 
 public interface IndexingService {

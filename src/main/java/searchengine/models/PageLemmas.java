@@ -1,4 +1,4 @@
-package searchengine.dtos;
+package searchengine.models;
 
 import searchengine.entities.Page;
 import searchengine.services.utils.WordFormMeanings;

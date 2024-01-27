@@ -1,4 +1,4 @@
-package searchengine.dtos.statistics;
+package searchengine.models.statistics;
 
 import java.util.List;
 

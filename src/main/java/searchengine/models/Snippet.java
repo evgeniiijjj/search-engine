@@ -1,4 +1,4 @@
-package searchengine.dtos;
+package searchengine.models;
 
 public record Snippet(
         String stringSnippet,
