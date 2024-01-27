@@ -18,7 +18,7 @@ public class SnippetGenerator {
     private final String text;
     private final Map<Integer, Integer> meaningPositions;
     private int maxMeaningsContinuousSequence;
-    private int counter;
+    private int continuousSequenceCounter;
 
     public SnippetGenerator(String text, PageLemmas pageLemmas) {
         this.text = text;
@@ -37,7 +37,7 @@ public class SnippetGenerator {
                 .distinct()
                 .forEach(meaning -> Patterns.SAMPLE
                         .getRedexPattern(meaning)
-                        .matcher(getText().toLowerCase())
+                        .matcher(text.toLowerCase())
                         .results()
                         .forEach(result ->
                                 addPosition(
@@ -89,8 +89,8 @@ public class SnippetGenerator {
                         StringBuilder::append
                 )
                 .toString();
-        if (counter > maxMeaningsContinuousSequence) {
-            maxMeaningsContinuousSequence = counter;
+        if (continuousSequenceCounter > maxMeaningsContinuousSequence) {
+            maxMeaningsContinuousSequence = continuousSequenceCounter;
         }
         return new Snippet(
                 stringSnippet,
@@ -102,15 +102,15 @@ public class SnippetGenerator {
     private String modifyString(int prevPos, int currentPos) {
         String str = text.substring(prevPos, currentPos);
         if (meaningPositions.containsKey(prevPos) && currentPos > 0) {
-            counter++;
+            continuousSequenceCounter++;
             return Patterns.HIGHLIGHTED_STRING_PART
                     .getStringValue(str);
         }
         if (!str.equals(Patterns.ONE_SPACE.getStringValue())) {
-            if (counter > maxMeaningsContinuousSequence) {
-                maxMeaningsContinuousSequence = counter;
+            if (continuousSequenceCounter > maxMeaningsContinuousSequence) {
+                maxMeaningsContinuousSequence = continuousSequenceCounter;
             }
-            counter = 0;
+            continuousSequenceCounter = 0;
         }
         if (prevPos == 0) {
             return Patterns.FIRST_STRING_PART

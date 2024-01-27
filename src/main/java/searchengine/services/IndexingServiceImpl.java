@@ -90,7 +90,7 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     private Page getRootPage(Site site) {
-        return new Page(site, "/");
+        return new Page(site, Patterns.ROOT_PATH.getStringValue());
     }
 
     @Override

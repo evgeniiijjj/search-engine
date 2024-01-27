@@ -7,7 +7,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.dao.DataIntegrityViolationException;
 import searchengine.entities.Index;
 import searchengine.entities.Lemma;
 import searchengine.entities.Page;
@@ -60,7 +59,7 @@ public class IndexingPageTask implements IndexingTask {
             page.setContent(document.html());
             try {
                 page = pageRepository.save(page);
-            } catch (DataIntegrityViolationException e) {
+            } catch (Exception e) {
                 log.info(e.getMessage());
                 return;
             }
@@ -127,14 +126,6 @@ public class IndexingPageTask implements IndexingTask {
                                         lemma -> 1,
                                         Integer::sum
                                 )
-                        )
-                        .entrySet()
-                        .stream()
-                        .collect(Collectors
-                                .toMap(
-                                        Map.Entry::getKey,
-                                        Map.Entry::getValue
-                                )
                         );
         saveIndexes(lemmas);
     }
@@ -147,6 +138,9 @@ public class IndexingPageTask implements IndexingTask {
     }
 
     private void saveIndexes(Map<Lemma, Integer> lemmas) {
+        int lemmasNum = lemmas.values().stream()
+                .reduce(Integer::sum)
+                .orElse(1);
         indexRepository.saveAllAndFlush(
                 lemmas
                         .entrySet()
@@ -155,7 +149,7 @@ public class IndexingPageTask implements IndexingTask {
                                 new Index(
                                         page,
                                         entry.getKey(),
-                                        (float) entry.getValue() / lemmas.size()
+                                        (float) entry.getValue() / lemmasNum
                                 )
                         )
                         .toList()
