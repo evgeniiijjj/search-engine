@@ -11,7 +11,7 @@ indexing-settings:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/search_engine_db?allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://localhost:3307/search_engine_db?allowPublicKeyRetrieval=true&useSSL=false
     username: searcher
     password: search_engine
   liquibase:

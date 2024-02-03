@@ -23,7 +23,8 @@ public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @JoinColumn(name = "site_id", nullable = false)
+    @JoinColumn(name = "site_id",
+            nullable = false)
     @ManyToOne(cascade = CascadeType.MERGE)
     private Site site;
     @Column(name = "page_path",

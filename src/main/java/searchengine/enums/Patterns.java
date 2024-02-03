@@ -4,13 +4,11 @@ import java.util.Arrays;
 import java.util.regex.Pattern;
 
 public enum Patterns {
-
     COMA(","),
     CONTAINS_RUSSIAN_LETTERS("[ёа-я]+"),
     CONTAINS_ENGLISH_LETTERS("[a-z]+"),
     EMPTY_STRING(""),
     FIRST_STRING_PART(""),
-
     HIGHLIGHTED_STRING_PART("<b>%s</b>"),
     HTML_TAG_A("a"),
     HTML_TAG_ATTRIBUTE_HREF("href"),

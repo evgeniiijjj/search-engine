@@ -25,18 +25,18 @@ public class Index implements Comparable<Index> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @JoinColumn(name = "page_id", nullable = false)
+    @JoinColumn(name = "page_id",
+            nullable = false)
     @ManyToOne(cascade = CascadeType.MERGE)
     private Page page;
-    @JoinColumn(name = "lemma_id", nullable = false)
-    @ManyToOne(cascade = CascadeType.MERGE)
-    private Lemma lemma;
+    @Column(nullable = false)
+    private String lemma;
     @Column(name = "lemma_rank",
             nullable = false)
     private Float rank;
 
     public Index(@Nonnull Page page,
-                 @Nonnull Lemma lemma,
+                 @Nonnull String lemma,
                  @Nonnull Float rank) {
         this.page = page;
         this.lemma = lemma;
@@ -47,15 +47,11 @@ public class Index implements Comparable<Index> {
         return page.getId();
     }
 
-    public int getLemmaId() {
-        return lemma.getId();
-    }
-
     @Override
     public int hashCode() {
         return (page.getSite().getUrl() +
                 page.getPath() +
-                lemma.getLemma()).hashCode();
+                lemma).hashCode();
     }
 
     @Override

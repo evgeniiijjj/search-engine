@@ -7,36 +7,38 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Service;
 import searchengine.config.SiteList;
-import searchengine.models.PageLemmas;
-import searchengine.models.SearchResult;
-import searchengine.models.Snippet;
-import searchengine.models.statistics.DetailedStatisticsItem;
-import searchengine.models.statistics.StatisticsData;
-import searchengine.models.statistics.StatisticsResponse;
-import searchengine.models.statistics.TotalStatistics;
 import searchengine.entities.Index;
-import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
 import searchengine.enums.Constants;
 import searchengine.enums.Messages;
 import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
+import searchengine.models.MeaningPositions;
+import searchengine.models.PageLemmas;
+import searchengine.models.SearchResult;
+import searchengine.models.Snippet;
+import searchengine.models.WordFormMeanings;
+import searchengine.models.statistics.DetailedStatisticsItem;
+import searchengine.models.statistics.StatisticsData;
+import searchengine.models.statistics.StatisticsResponse;
+import searchengine.models.statistics.TotalStatistics;
 import searchengine.repositories.IndexRepository;
-import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.utils.LemmaProcessor;
-import searchengine.services.utils.SnippetGenerator;
-import searchengine.services.utils.WordFormMeanings;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.AbstractMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,7 +50,6 @@ public class IndexingServiceImpl implements IndexingService {
     private final IndexingManager indexingManager;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
 
     @Override
@@ -56,12 +57,12 @@ public class IndexingServiceImpl implements IndexingService {
         if (indexingManager.isIndexing()) {
             return false;
         }
-        list.getSites().stream()
-                .map(this::setStatusSite)
-                .toList()
-                .stream()
-                .map(this::getRootPage)
-                .forEach(indexingManager::startIndexingPageTask);
+        indexingManager.setSites(
+                list.getSites().stream()
+                        .map(this::setStatusSite)
+                        .collect(Collectors.toSet())
+        );
+        indexingManager.startIndexing();
         return true;
     }
 
@@ -72,13 +73,8 @@ public class IndexingServiceImpl implements IndexingService {
     private Site updateStatusSite(Site site,
                                   Statuses status,
                                   String lastError) {
-        Optional<Site> optional = siteRepository.findByUrl(site.getUrl());
-        if (optional.isPresent()) {
-            site = optional.get();
-            indexRepository.deleteAllBySite(site);
-            pageRepository.deleteAllBySite(site);
-            lemmaRepository.deleteAllBySite(site);
-        }
+        siteRepository.findByUrl(site.getUrl())
+                .ifPresent(this::deleteOldIndexes);
         site.setStatus(status);
         site.setStatusTime(
                 Instant.now()
@@ -89,8 +85,10 @@ public class IndexingServiceImpl implements IndexingService {
         return site;
     }
 
-    private Page getRootPage(Site site) {
-        return new Page(site, Patterns.ROOT_PATH.getStringValue());
+    private void deleteOldIndexes(Site site) {
+        indexRepository.deleteOldIndexesBySite(site);
+        pageRepository.deleteAllBySite(site);
+        siteRepository.delete(site);
     }
 
     @Override
@@ -133,7 +131,7 @@ public class IndexingServiceImpl implements IndexingService {
             page = optionalPage.get();
             deletePageData(page);
         }
-        indexingManager.startIndexingPageTask(page);
+        indexingManager.startSearchPagesTask(page);
         try {
             Thread.sleep(Constants.TIMEOUT_150_MS.getValue());
         } catch (InterruptedException e) {
@@ -145,20 +143,6 @@ public class IndexingServiceImpl implements IndexingService {
     private void deletePageData(Page page) {
         List<Index> indexes = indexRepository.findAllByPage(page);
         indexRepository.deleteAll(indexes);
-        List<Lemma> lemmas = indexes.stream()
-                .map(Index::getLemma)
-                .toList();
-        lemmaRepository.deleteAll(
-                lemmas.stream()
-                        .filter(lemma -> lemma.getFrequency() == 1)
-                        .toList()
-        );
-        lemmaRepository.saveAllAndFlush(
-                lemmas.stream()
-                        .filter(lemma -> lemma.getFrequency() > 1)
-                        .peek(lemma -> lemma.setFrequency(lemma.getFrequency() - 1))
-                        .toList()
-        );
         pageRepository.delete(page);
     }
 
@@ -167,7 +151,7 @@ public class IndexingServiceImpl implements IndexingService {
         TotalStatistics totalStatistics = new TotalStatistics(
                 (int) siteRepository.count(),
                 (int) pageRepository.count(),
-                (int) lemmaRepository.count(),
+                (int) indexRepository.countDistinctLemma(),
                 indexingManager.isIndexing()
         );
         List<DetailedStatisticsItem> details = siteRepository
@@ -180,8 +164,8 @@ public class IndexingServiceImpl implements IndexingService {
                                 getSiteStatus(site),
                                 site.getStatusTime().toEpochMilli(),
                                 site.getLastError() != null ? site.getLastError() : "none",
-                                pageRepository.countBySite(site),
-                                siteRepository.lemmasCount(site)
+                                (int) pageRepository.countBySite(site),
+                                (int) indexRepository.lemmaCountBySite(site)
                         )
                 )
                 .toList();
@@ -202,7 +186,7 @@ public class IndexingServiceImpl implements IndexingService {
     public List<SearchResult> getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
-        Map<Lemma, WordFormMeanings> lemmas = getLemmasMap(query);
+        Map<String, WordFormMeanings> lemmas = getLemmasMap(query);
         Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
         return indexes
                 .entrySet()
@@ -224,58 +208,50 @@ public class IndexingServiceImpl implements IndexingService {
                                         .orElse(0F)
                         )
                 )
+                .sorted()
+                .skip(offset)
+                .limit(limit)
                 .map(this::getSearchResult)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .sorted()
-                .skip(offset)
-                .limit(limit)
                 .toList();
     }
 
-    private Map<Lemma, WordFormMeanings> getLemmasMap(String query) {
-        return LemmaProcessor
+    private Map<String, WordFormMeanings> getLemmasMap(String query) {
+        Map<String, WordFormMeanings> lemmasMap = new HashMap<>();
+        LemmaProcessor
                 .getLemmas(
                         Patterns.REMOVE_PUNCTUATION_MARKS
                                 .getStringValue(query)
                 )
-                .stream()
-                .flatMap(wfm -> lemmaRepository
-                        .findByLemma(wfm.toString())
-                        .stream()
-                        .map(lemma ->
-                                new AbstractMap.SimpleEntry<>(
-                                        lemma,
-                                        wfm
-                                )
-                        )
-                )
-                .collect(Collectors
-                        .toMap(
-                                Map.Entry::getKey,
-                                Map.Entry::getValue
-                        )
+                .forEach(wordFormMeanings ->
+                        lemmasMap.put(wordFormMeanings.toString(), wordFormMeanings)
                 );
+        return lemmasMap;
     }
 
-    private Map<Page, List<Index>> getIndexesMap(Map<Lemma, WordFormMeanings> lemmas,
+    private Map<Page, List<Index>> getIndexesMap(Map<String,WordFormMeanings> lemmas,
                                                  String siteUrl) {
         return lemmas.keySet()
                 .stream()
-                .flatMap(lemma -> indexRepository
-                        .findAllByLemmaOrderByRankDescLimit(
-                                lemma,
-                                Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
-                                        .getValue()
+                .flatMap(lemma -> siteRepository.findByUrl(siteUrl)
+                        .map(site ->
+                                indexRepository.findByLemmaAndSiteOrderByRankDescLimit(
+                                        lemma,
+                                        site,
+                                        Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
+                                                .getValue()
+                                )
+                        )
+                        .orElse(
+                                indexRepository.findByLemmaOrderByRankDescLimit(
+                                        lemma,
+                                        Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
+                                                .getValue()
+                                )
                         )
                         .stream()
-                )
-                .filter(index -> siteRepository
-                        .findByUrl(siteUrl)
-                        .map(site -> site
-                                .equals(index.getPage().getSite())
-                        )
-                        .orElse(true)
                 )
                 .collect(Collectors
                         .groupingBy(
@@ -292,9 +268,8 @@ public class IndexingServiceImpl implements IndexingService {
                 .map(this::getTextFromElement)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(text -> new SnippetGenerator(text, pageLemmas))
-                .filter(SnippetGenerator::isMeaningPositionsNotEmpty)
-                .map(SnippetGenerator::getSnippet)
+                .map(text -> getSnippet(text, pageLemmas))
+                .filter(Snippet::isNotBlank)
                 .max(Snippet::compareTo)
                 .map(snippet ->
                         new SearchResult(
@@ -304,8 +279,8 @@ public class IndexingServiceImpl implements IndexingService {
                                 document.title(),
                                 snippet.toString(),
                                 pageLemmas.relevance(),
-                                snippet.wordMeaningCount(),
-                                snippet.maxMeaningContinuousSequence()
+                                snippet.getWordMeaningCount(),
+                                snippet.getWordMeaningsVarietyCount()
                         )
                 );
     }
@@ -318,5 +293,82 @@ public class IndexingServiceImpl implements IndexingService {
             );
         }
         return Optional.empty();
+    }
+
+    private Snippet getSnippet(String text, PageLemmas pageLemmas) {
+        Snippet snippet = getPositions(text, pageLemmas);
+        int prevPos = 0;
+        StringBuilder stringSnippetBuilder = new StringBuilder();
+        List<MeaningPositions> positions = snippet.getPositions();
+        for (int i = 0; i < positions.size(); i++) {
+            stringSnippetBuilder.append(
+                    modifyString(
+                            text,
+                            prevPos,
+                            positions.get(i),
+                            i == positions.size() - 1
+                    )
+            );
+            prevPos = positions.get(i).end();
+        }
+        snippet.setSnippet(stringSnippetBuilder.toString());
+        return snippet;
+    }
+
+    private Snippet getPositions(String text, PageLemmas pageLemmas) {
+        Set<MeaningPositions> positions = new HashSet<>();
+        AtomicInteger counter = new AtomicInteger();
+        pageLemmas
+                .lemmas()
+                .stream()
+                .map(wfm -> wfm.getTransformations()
+                        .stream()
+                        .map(WordFormMeanings::toString)
+                        .distinct()
+                        .map(Patterns.SAMPLE::getRedexPattern)
+                        .map(pattern -> pattern.matcher(text.toLowerCase()))
+                        .flatMap(Matcher::results)
+                        .toList()
+                )
+                .filter(list -> !list.isEmpty())
+                .peek(l -> counter.incrementAndGet())
+                .flatMap(List::stream)
+                .map(matchResult ->
+                        new MeaningPositions(
+                                matchResult.start(),
+                                matchResult.end()
+                        )
+                )
+                .sorted(MeaningPositions::compareTo)
+                .forEach(positions::add);
+        List<MeaningPositions> list = positions.stream()
+                .sorted(MeaningPositions::compareTo)
+                .toList();
+        return new Snippet(
+                "",
+                list,
+                counter.get()
+        );
+    }
+
+    private String modifyString(String text, int prevPos,
+                                MeaningPositions meaningPositions, boolean isEndPart) {
+        String highlightedPart = Patterns.HIGHLIGHTED_STRING_PART
+                .getStringValue(text.substring(meaningPositions.start(), meaningPositions.end()));
+        String beginPart = "";
+        String endPart = "";
+        if (prevPos == 0 && meaningPositions.start() > 0) {
+            beginPart = Patterns.FIRST_STRING_PART
+                    .getStringValue(text.substring(prevPos, meaningPositions.start()));
+        }
+        if (prevPos > 0) {
+            beginPart = Patterns.MIDDLE_STRING_PART
+                    .getStringValue(text.substring(prevPos, meaningPositions.start()));
+        }
+        if (isEndPart && meaningPositions.end() < text.length()) {
+            endPart = Patterns.LAST_STRING_PART
+                    .getStringValue(text.substring(meaningPositions.end()));
+        }
+        return beginPart.concat(highlightedPart).concat(endPart);
     }
 }

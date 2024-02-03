@@ -5,26 +5,38 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.entities.Index;
-import searchengine.entities.Lemma;
 import searchengine.entities.Page;
 import searchengine.entities.Site;
 import java.util.List;
 
 public interface IndexRepository extends JpaRepository<Index, Integer> {
 
-    @Query(value = "SELECT * FROM indexes WHERE lemma_id=:#{#lemma.id} " +
+    @Query(value = "SELECT * FROM indexes WHERE lemma=:#{#lemma} " +
             "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
             nativeQuery = true)
-    List<Index> findAllByLemmaOrderByRankDescLimit(Lemma lemma, int limit);
+    List<Index> findByLemmaOrderByRankDescLimit(String lemma, int limit);
 
-    @Modifying
-    @Transactional
-    @Query(value = "DELETE FROM indexes ind WHERE ind.page_id IN " +
-            "(SELECT p.id FROM pages p WHERE p.site_id=:#{#site.id})",
+    @Query(value = "SELECT * FROM indexes WHERE lemma=:#{#lemma} AND page_id IN " +
+            "(SELECT p.id FROM pages p WHERE p.site_id=:#{#site.id}) " +
+            "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
             nativeQuery = true)
-    void deleteAllBySite(Site site);
+    List<Index> findByLemmaAndSiteOrderByRankDescLimit(String lemma, Site site, int limit);
 
-    void deleteAllByPage(Page page);
+    @Query(value = "SELECT COUNT(DISTINCT(lemma)) FROM indexes",
+            nativeQuery = true)
+    long countDistinctLemma();
+
+    @Query(value = "SELECT COUNT(DISTINCT lemma) FROM indexes WHERE page_id IN " +
+            "(SELECT id FROM pages WHERE site_id=:#{#site.id})",
+            nativeQuery = true)
+    long lemmaCountBySite(Site site);
+
+    @Transactional
+    @Modifying
+    @Query(value = "DELETE FROM indexes WHERE page_id IN " +
+            "(SELECT id FROM pages WHERE site_id=:#{#site.id})",
+            nativeQuery = true)
+    void deleteOldIndexesBySite(Site site);
 
     List<Index> findAllByPage(Page page);
 }

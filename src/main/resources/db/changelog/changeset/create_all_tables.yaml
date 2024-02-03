@@ -14,7 +14,7 @@ databaseChangeLog:
                     primaryKey: true
               - column:
                   name: site_status
-                  type: enum('INDEXING', 'INDEXED', 'FAILED')
+                  type: varchar(50)
                   constraints:
                     nullable: false
               - column:
@@ -58,7 +58,6 @@ databaseChangeLog:
                     foreignKeyName: pages_site_fk
                     referencedTableName: sites
                     referencedColumnNames: id
-                    onDelete: CASCADE
                     nullable: false
               - column:
                   name: page_path
@@ -85,43 +84,6 @@ databaseChangeLog:
             tableName: pages
             unique: true
         - createTable:
-            tableName: lemmas
-            columns:
-              - column:
-                  name: id
-                  type: int
-                  autoIncrement: true
-                  constraints:
-                    primaryKey: true
-              - column:
-                  name: site_id
-                  type: int
-                  constraints:
-                    foreignKeyName: lemmas_site_fk
-                    referencedTableName: sites
-                    referencedColumnName: id
-                    onDelete: CASCADE
-                    nullable: false
-              - column:
-                  name: lemma
-                  type: varchar(255)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: frequency
-                  type: int
-                  constraints:
-                    nullable: false
-        - createIndex:
-            columns:
-              - column:
-                  name: site_id
-              - column:
-                  name: lemma(50)
-            indexName: lemmas_site_id_lemma
-            tableName: lemmas
-            unique: true
-        - createTable:
             tableName: indexes
             columns:
               - column:
@@ -137,16 +99,11 @@ databaseChangeLog:
                     foreignKeyName: indexes_pages_fk
                     referencedTableName: pages
                     referencedColumnNames: id
-                    onDelete: CASCADE
                     nullable: false
               - column:
-                  name: lemma_id
-                  type: int
+                  name: lemma
+                  type: varchar(255)
                   constraints:
-                    foreignKeyName: indexes_lemma_fk
-                    referencedTableName: lemmas
-                    referencedColumnNames: id
-                    onDelete: CASCADE
                     nullable: false
               - column:
                   name: lemma_rank
@@ -158,8 +115,8 @@ databaseChangeLog:
               - column:
                   name: page_id
               - column:
-                  name: lemma_id
-            indexName: indexes_page_id_lemma_id
+                  name: lemma
+            indexName: indexes_page_id_lemma
             tableName: indexes
             unique: true
         - createIndex:

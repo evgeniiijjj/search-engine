@@ -26,7 +26,6 @@ public class Site {
     private Integer id;
     @Enumerated(EnumType.STRING)
     @Column(name = "site_status",
-            columnDefinition = "enum",
             nullable = false)
     private Statuses status;
     @Column(name = "status_time",

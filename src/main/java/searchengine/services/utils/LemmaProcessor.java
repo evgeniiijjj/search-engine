@@ -5,6 +5,7 @@ import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import searchengine.enums.Patterns;
+import searchengine.models.WordFormMeanings;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.MatchResult;
