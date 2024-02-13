@@ -3,14 +3,13 @@ package searchengine.services.tasks;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import searchengine.entities.Index;
 import searchengine.entities.Page;
 import searchengine.enums.Patterns;
+import searchengine.models.WordFormMeanings;
 import searchengine.services.IndexingManager;
 import searchengine.services.utils.LemmaProcessor;
-import searchengine.models.WordFormMeanings;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,21 +23,13 @@ public class IndexingPagesTask implements Runnable {
 
     @Override
     public void run() {
-        Document document = Jsoup.parse(page.getContent());
-        String text = document.body()
-                .getAllElements()
+        Map<String, Integer> lemmas = Jsoup.parse(page.getContent())
+                .body().getAllElements()
                 .stream()
                 .map(this::getTextFromElement)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .reduce(
-                        new StringBuilder(),
-                        (sb, str) -> sb.append(" ").append(str),
-                        StringBuilder::append
-                )
-                .toString();
-        Map<String, Integer> lemmas =
-                LemmaProcessor
+                .flatMap(text -> LemmaProcessor
                         .getLemmas(text)
                         .stream()
                         .map(WordFormMeanings::toString)
@@ -48,7 +39,17 @@ public class IndexingPagesTask implements Runnable {
                                         lemma -> 1,
                                         Integer::sum
                                 )
-                        );
+                        )
+                        .entrySet()
+                        .stream()
+                )
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                Integer::sum
+                        )
+                );
         saveIndexes(lemmas);
     }
 

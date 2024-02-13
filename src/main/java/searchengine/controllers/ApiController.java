@@ -70,7 +70,6 @@ public class ApiController {
                     .badRequest()
                     .body(Messages.FAILED_SEARCH.getMessage());
         }
-        return ResponseEntity.ok(Messages.SUCCESS_SEARCH
-                .getMessage(indexingService.getSearchResults(query, site, offset, limit)));
+        return ResponseEntity.ok(indexingService.getSearchResults(query, site, offset, limit));
     }
 }

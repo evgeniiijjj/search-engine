@@ -17,6 +17,7 @@ import searchengine.enums.Statuses;
 import searchengine.models.MeaningPositions;
 import searchengine.models.PageLemmas;
 import searchengine.models.SearchResult;
+import searchengine.models.SearchResults;
 import searchengine.models.Snippet;
 import searchengine.models.WordFormMeanings;
 import searchengine.models.statistics.DetailedStatisticsItem;
@@ -27,6 +28,8 @@ import searchengine.repositories.IndexRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.utils.LemmaProcessor;
+
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -35,6 +38,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,6 +55,13 @@ public class IndexingServiceImpl implements IndexingService {
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final IndexRepository indexRepository;
+
+    @Nullable
+    private String query;
+    @Nullable
+    private String siteUrl;
+    @Nullable
+    private SearchResults searchResults;
 
     @Override
     public boolean startIndexing() {
@@ -183,9 +194,22 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     @Override
-    public List<SearchResult> getSearchResults(
+    public SearchResults getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
+
+        if (!Objects.equals(this.query, query) ||
+                !Objects.equals(this.siteUrl, siteUrl) ||
+                searchResults == null) {
+            this.query = query;
+            this.siteUrl = siteUrl;
+            searchResults = new SearchResults(getSearchResults(query, siteUrl));
+        }
+
+        return searchResults.getPagedResults(offset, limit);
+    }
+
+    public List<SearchResult> getSearchResults(String query, String siteUrl) {
         Map<String, WordFormMeanings> lemmas = getLemmasMap(query);
         Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
         return indexes
@@ -209,8 +233,6 @@ public class IndexingServiceImpl implements IndexingService {
                         )
                 )
                 .sorted()
-                .skip(offset)
-                .limit(limit)
                 .map(this::getSearchResult)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
