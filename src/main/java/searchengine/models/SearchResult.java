@@ -8,17 +8,10 @@ public record SearchResult(
         String uri,
         String title,
         String snippet,
-        Float relevance,
-        @JsonIgnore
-        Integer meaningsCount,
-        @JsonIgnore
-        Integer maxMeaningContinuousSequence
+        Float relevance
 ) implements Comparable<SearchResult> {
     @Override
     public int compareTo(SearchResult o) {
-        return o.maxMeaningContinuousSequence.compareTo(maxMeaningContinuousSequence) * 10000 +
-                o.meaningsCount.compareTo(meaningsCount) * 1000 +
-                Integer.compare(o.snippet.length(), snippet.length()) * 100 +
-                o.relevance.compareTo(relevance);
+        return o.relevance.compareTo(relevance);
     }
 }

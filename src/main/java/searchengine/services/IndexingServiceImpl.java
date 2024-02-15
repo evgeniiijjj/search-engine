@@ -14,12 +14,11 @@ import searchengine.enums.Constants;
 import searchengine.enums.Messages;
 import searchengine.enums.Patterns;
 import searchengine.enums.Statuses;
+import searchengine.models.Meaning;
 import searchengine.models.MeaningPositions;
-import searchengine.models.PageLemmas;
 import searchengine.models.SearchResult;
 import searchengine.models.SearchResults;
 import searchengine.models.Snippet;
-import searchengine.models.WordFormMeanings;
 import searchengine.models.statistics.DetailedStatisticsItem;
 import searchengine.models.statistics.StatisticsData;
 import searchengine.models.statistics.StatisticsResponse;
@@ -34,16 +33,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @AllArgsConstructor
@@ -197,7 +194,6 @@ public class IndexingServiceImpl implements IndexingService {
     public SearchResults getSearchResults(
             String query, String siteUrl, int offset, int limit
     ) {
-
         if (!Objects.equals(this.query, query) ||
                 !Objects.equals(this.siteUrl, siteUrl) ||
                 searchResults == null) {
@@ -205,62 +201,31 @@ public class IndexingServiceImpl implements IndexingService {
             this.siteUrl = siteUrl;
             searchResults = new SearchResults(getSearchResults(query, siteUrl));
         }
-
         return searchResults.getPagedResults(offset, limit);
     }
 
     public List<SearchResult> getSearchResults(String query, String siteUrl) {
-        Map<String, WordFormMeanings> lemmas = getLemmasMap(query);
-        Map<Page, List<Index>> indexes = getIndexesMap(lemmas, siteUrl);
-        return indexes
-                .entrySet()
-                .stream()
-                .map(entry ->
-                        new PageLemmas(
-                                entry.getKey(),
-                                entry
-                                        .getValue()
-                                        .stream()
-                                        .map(Index::getLemma)
-                                        .map(lemmas::get)
-                                        .toList(),
-                                entry
-                                        .getValue()
-                                        .stream()
-                                        .map(Index::getRank)
-                                        .reduce(Float::sum)
-                                        .orElse(0F)
-                        )
-                )
-                .sorted()
-                .map(this::getSearchResult)
+        List<Meaning> words = LemmaProcessor.getLemmas(query, true);
+        return getPages(query, siteUrl)
+                .map(page -> getSearchResult(page, words))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .sorted()
                 .toList();
     }
 
-    private Map<String, WordFormMeanings> getLemmasMap(String query) {
-        Map<String, WordFormMeanings> lemmasMap = new HashMap<>();
-        LemmaProcessor
+    private Stream<Page> getPages(String query, String siteUrl) {
+        return LemmaProcessor
                 .getLemmas(
                         Patterns.REMOVE_PUNCTUATION_MARKS
-                                .getStringValue(query)
+                                .getStringValue(query),
+                        false
                 )
-                .forEach(wordFormMeanings ->
-                        lemmasMap.put(wordFormMeanings.toString(), wordFormMeanings)
-                );
-        return lemmasMap;
-    }
-
-    private Map<Page, List<Index>> getIndexesMap(Map<String,WordFormMeanings> lemmas,
-                                                 String siteUrl) {
-        return lemmas.keySet()
                 .stream()
                 .flatMap(lemma -> siteRepository.findByUrl(siteUrl)
                         .map(site ->
                                 indexRepository.findByLemmaAndSiteOrderByRankDescLimit(
-                                        lemma,
+                                        lemma.word(),
                                         site,
                                         Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
                                                 .getValue()
@@ -268,41 +233,37 @@ public class IndexingServiceImpl implements IndexingService {
                         )
                         .orElse(
                                 indexRepository.findByLemmaOrderByRankDescLimit(
-                                        lemma,
+                                        lemma.word(),
                                         Constants.MOST_RELEVANT_INDEXES_COUNT_LIMIT
                                                 .getValue()
                                 )
                         )
                         .stream()
                 )
-                .collect(Collectors
-                        .groupingBy(
-                                Index::getPage
-                        )
-                );
+                .map(Index::getPage)
+                .distinct();
     }
 
-    private Optional<SearchResult> getSearchResult(PageLemmas pageLemmas) {
-        Document document = Jsoup.parse(pageLemmas.page().getContent());
+    private Optional<SearchResult> getSearchResult(Page page, List<Meaning> words) {
+        Document document = Jsoup.parse(page.getContent());
         return document.body()
                 .getAllElements()
                 .stream()
                 .map(this::getTextFromElement)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(text -> getSnippet(text, pageLemmas))
+                .map(text -> getSnippet(text, words))
                 .filter(Snippet::isNotBlank)
                 .max(Snippet::compareTo)
                 .map(snippet ->
                         new SearchResult(
-                                pageLemmas.page().getSite().getUrl(),
-                                pageLemmas.page().getSite().getName(),
-                                pageLemmas.page().getPath(),
+                                page.getSite().getUrl(),
+                                page.getSite().getName(),
+                                page.getPath(),
                                 document.title(),
                                 snippet.toString(),
-                                pageLemmas.relevance(),
-                                snippet.getWordMeaningCount(),
-                                snippet.getWordMeaningsVarietyCount()
+                                (float) snippet.getWordMeaningsVarietyCount() / words.size() +
+                                        (float) snippet.getWordMeaningCount() / words.size() / 100
                         )
                 );
     }
@@ -317,8 +278,8 @@ public class IndexingServiceImpl implements IndexingService {
         return Optional.empty();
     }
 
-    private Snippet getSnippet(String text, PageLemmas pageLemmas) {
-        Snippet snippet = getPositions(text, pageLemmas);
+    private Snippet getSnippet(String text, List<Meaning> words) {
+        Snippet snippet = getPositions(text, words);
         int prevPos = 0;
         StringBuilder stringSnippetBuilder = new StringBuilder();
         List<MeaningPositions> positions = snippet.getPositions();
@@ -337,28 +298,20 @@ public class IndexingServiceImpl implements IndexingService {
         return snippet;
     }
 
-    private Snippet getPositions(String text, PageLemmas pageLemmas) {
+    private Snippet getPositions(String text, List<Meaning> words) {
         Set<MeaningPositions> positions = new HashSet<>();
-        AtomicInteger counter = new AtomicInteger();
-        pageLemmas
-                .lemmas()
+        words
                 .stream()
-                .map(wfm -> wfm.getTransformations()
-                        .stream()
-                        .map(WordFormMeanings::toString)
-                        .distinct()
-                        .map(Patterns.SAMPLE::getRedexPattern)
-                        .map(pattern -> pattern.matcher(text.toLowerCase()))
-                        .flatMap(Matcher::results)
-                        .toList()
-                )
-                .filter(list -> !list.isEmpty())
-                .peek(l -> counter.incrementAndGet())
-                .flatMap(List::stream)
-                .map(matchResult ->
-                        new MeaningPositions(
-                                matchResult.start(),
-                                matchResult.end()
+                .flatMap(meaning -> Patterns.SAMPLE.getRedexPattern(meaning.word())
+                        .matcher(text.toLowerCase())
+                        .results()
+                        .map(matchResult ->
+                                new MeaningPositions(
+                                        meaning.word(),
+                                        matchResult.start(),
+                                        matchResult.end(),
+                                        meaning.stopWord()
+                                )
                         )
                 )
                 .sorted(MeaningPositions::compareTo)
@@ -366,10 +319,21 @@ public class IndexingServiceImpl implements IndexingService {
         List<MeaningPositions> list = positions.stream()
                 .sorted(MeaningPositions::compareTo)
                 .toList();
+        Set<String> strings = new HashSet<>();
+        List<MeaningPositions> result = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            if (!list.get(i).stopWord() || i > 0  &&
+                    !list.get(i - 1).stopWord() && list.get(i).start() - list.get(i - 1).end() == 1 ||
+                    i < list.size() - 1 &&
+                    !list.get(i + 1).stopWord() && list.get(i + 1).start() - list.get(i).end() == 1) {
+                result.add(list.get(i));
+                strings.add(list.get(i).word());
+            }
+        }
         return new Snippet(
                 "",
-                list,
-                counter.get()
+                result,
+                strings.size()
         );
     }
 

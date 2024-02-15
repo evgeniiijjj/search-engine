@@ -12,13 +12,13 @@ import java.util.List;
 public interface IndexRepository extends JpaRepository<Index, Integer> {
 
     @Query(value = "SELECT * FROM indexes WHERE lemma=:#{#lemma} " +
-            "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
+            "GROUP BY page_id ORDER BY lemma_rank DESC LIMIT :#{#limit}",
             nativeQuery = true)
     List<Index> findByLemmaOrderByRankDescLimit(String lemma, int limit);
 
     @Query(value = "SELECT * FROM indexes WHERE lemma=:#{#lemma} AND page_id IN " +
             "(SELECT p.id FROM pages p WHERE p.site_id=:#{#site.id}) " +
-            "ORDER BY lemma_rank DESC LIMIT :#{#limit}",
+            "GROUP BY page_id ORDER BY lemma_rank DESC LIMIT :#{#limit}",
             nativeQuery = true)
     List<Index> findByLemmaAndSiteOrderByRankDescLimit(String lemma, Site site, int limit);
 

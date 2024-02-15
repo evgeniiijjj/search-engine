@@ -1,8 +1,10 @@
 package searchengine.models;
 
 public record MeaningPositions(
+        String word,
         int start,
-        int end
+        int end,
+        boolean stopWord
 ) implements Comparable<MeaningPositions> {
     @Override
     public int hashCode() {

@@ -7,7 +7,7 @@ import org.jsoup.nodes.Element;
 import searchengine.entities.Index;
 import searchengine.entities.Page;
 import searchengine.enums.Patterns;
-import searchengine.models.WordFormMeanings;
+import searchengine.models.Meaning;
 import searchengine.services.IndexingManager;
 import searchengine.services.utils.LemmaProcessor;
 import java.util.Map;
@@ -30,12 +30,11 @@ public class IndexingPagesTask implements Runnable {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .flatMap(text -> LemmaProcessor
-                        .getLemmas(text)
+                        .getLemmas(text, false)
                         .stream()
-                        .map(WordFormMeanings::toString)
                         .collect(
                                 Collectors.toMap(
-                                        lemma -> lemma,
+                                        Meaning::word,
                                         lemma -> 1,
                                         Integer::sum
                                 )
